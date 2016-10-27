@@ -4,13 +4,13 @@
 **************************************************************************
 * Copyright (C) 2015 Bosch Sensortec GmbH. All Rights Reserved.
 *
-* File:		BHy_support.c
+* File:   BHy_support.c
 *
-* Date:		2015/07/17
+* Date:   2015/07/17
 *
-* Revision:	1.0
+* Revision: 1.0
 *
-* Usage:	BHy on SAM G55
+* Usage:  BHy on SAM G55
 *
 **************************************************************************
 * \section License
@@ -57,10 +57,10 @@
 *************************************************************************/
 /*!
 *
-* @file		Bhy_support.c
-* @author	Marc-Andre Harvey
+* @file   Bhy_support.c
+* @author Marc-Andre Harvey
 *
-* @brief	BHY API Support Source File
+* @brief  BHY API Support Source File
 *
 *
 */
@@ -72,83 +72,157 @@
 
 extern void mdelay(uint32_t ul_dly_ticks);
 
-void bhy_initialize_support(void)
+static s8 bhy_i2c_write_internal(u8 dev_addr, u8 reg_addr, u8 *reg_data, u16 length)
 {
-	bhy.bus_write = &bhy_i2c_write;
-	bhy.bus_read = &bhy_i2c_read;
-	bhy.delay_msec = &bhy_delay_msec;
-	bhy.device_addr = BHY_I2C_SLAVE_ADDRESS;
+    u32 bhy_write_stat;
 
-	bhy_reset();
-	
-	bhy_init(&bhy);
+    bhy_i2c_packet.chip         =   dev_addr;   //i2c address
+    *bhy_i2c_packet.addr        =   reg_addr;   //register address
+    bhy_i2c_packet.addr_length  =   1;
+    bhy_i2c_packet.buffer       =   reg_data;
+    bhy_i2c_packet.length       =   length;
+
+    bhy_write_stat = twi_master_write(TWI4, &bhy_i2c_packet);
+
+    if (bhy_write_stat != TWI_SUCCESS)
+    {
+        //insert error handling code here
+        //i2c_master_send_stop(&i2c_master_instance);
+        //i2c_master_disable(&i2c_master_instance);
+        //i2c_initialize();
+        return BHY_ERROR;
+    }
+
+    return BHY_SUCCESS;
+
 }
 
-
-
-int8_t bhy_i2c_write(uint8_t dev_addr, uint8_t reg_addr, uint8_t *reg_data, uint16_t length)
+static s8 bhy_i2c_read_internal(u8 dev_addr, u8 reg_addr, u8 *rx_data, u16 length)
 {
-	uint32_t bhy_write_stat;
-	
+    u32 bhy_read_stat;
 
-	bhy_i2c_packet.chip			=	dev_addr;	//i2c address
-	*bhy_i2c_packet.addr		=	reg_addr;	//register address
-	bhy_i2c_packet.addr_length	=	1;
-	bhy_i2c_packet.buffer		=	reg_data;
-	bhy_i2c_packet.length		=	length;
-	
+    bhy_i2c_packet.chip         =   dev_addr;   //i2c address
+    *bhy_i2c_packet.addr        =   reg_addr;   //register address
+    bhy_i2c_packet.addr_length  =   1;
+    bhy_i2c_packet.buffer       =   rx_data;
+    bhy_i2c_packet.length       =   length;
 
-	bhy_write_stat = twi_master_write(TWI4, &bhy_i2c_packet);
-	
-	
-	if (bhy_write_stat != TWI_SUCCESS)
-	{
-		//insert error handling code here
-		//i2c_master_send_stop(&i2c_master_instance);
-		//i2c_master_disable(&i2c_master_instance);
-		//i2c_initialize();
-		return BHY_ERROR;
-	}
-	
-	return BHY_SUCCESS;
+    bhy_read_stat = twi_master_read(TWI4, &bhy_i2c_packet);
+
+    if (bhy_read_stat != TWI_SUCCESS)
+    {
+        //insert error handling code
+        //i2c_master_disable(&i2c_master_instance);
+        //i2c_initialize();
+        return BHY_ERROR;
+    }
+
+    return BHY_SUCCESS;
+
 }
 
-
-int8_t bhy_i2c_read(uint8_t dev_addr, uint8_t reg_addr, uint8_t *rx_data, uint16_t length)
+s8 bhy_i2c_write(u8 dev_addr, u8 reg_addr, u8 *p_wr_buf, u16 wr_len)
 {
-	uint32_t bhy_read_stat;
-	
-	
-	bhy_i2c_packet.chip			=	dev_addr;	//i2c address
-	*bhy_i2c_packet.addr		=	reg_addr;	//register address
-	bhy_i2c_packet.addr_length	=	1;
-	bhy_i2c_packet.buffer		=	rx_data;
-	bhy_i2c_packet.length		=	length;
-		
+    s8 ret = BHY_SUCCESS;
 
-	bhy_read_stat = twi_master_read(TWI4, &bhy_i2c_packet);
-		
-		
-	if (bhy_read_stat != TWI_SUCCESS)
-	{
-		//insert error handling code
-		//i2c_master_disable(&i2c_master_instance);
-		//i2c_initialize();
-		return BHY_ERROR;
-	}
-	
-	return BHY_SUCCESS;
+    /* split the write if write length is larger than limitation */
+    while (wr_len > I2C_ONCE_WRITE_MAX_COUNT)
+    {
+        ret += bhy_i2c_write_internal(dev_addr, reg_addr, p_wr_buf, I2C_ONCE_WRITE_MAX_COUNT);
+        wr_len -= I2C_ONCE_WRITE_MAX_COUNT;
+        if (reg_addr != BHY_I2C_REG_UPLOAD_DATA_ADDR)
+        {
+            reg_addr += I2C_ONCE_WRITE_MAX_COUNT;
+        }
+        p_wr_buf += I2C_ONCE_WRITE_MAX_COUNT;
+    }
+
+    if (wr_len > 0)
+    {
+        ret += bhy_i2c_write_internal(dev_addr, reg_addr, p_wr_buf, wr_len);
+    }
+
+    return ret;
 }
 
+s8 bhy_i2c_read(u8 dev_addr, u8 reg_addr, u8 *p_rd_buf, u16 rd_len)
+{
+    s8 ret = BHY_SUCCESS;
+    u16 rd_len_in_once = I2C_ONCE_READ_MAX_COUNT;
+    /* split the read if read length is larger than limitation */
+    while (rd_len > I2C_ONCE_READ_MAX_COUNT)
+    {
+        if(reg_addr <= BHY_I2C_REG_BUFFER_END_ADDR)/* check fifo buffer address */
+        {
+            if((reg_addr+I2C_ONCE_READ_MAX_COUNT)>=BHY_I2C_REG_BUFFER_END_ADDR)
+            {
+                /* if not in burst read mode, the max read lenght should not over BHY_I2C_REG_BUFFER_LENGTH(50)*/
+                rd_len_in_once = (BHY_I2C_REG_BUFFER_LENGTH - reg_addr);
+            }
+            else
+            {
+                rd_len_in_once = I2C_ONCE_READ_MAX_COUNT;
+            }
+            ret += bhy_i2c_read_internal(dev_addr, reg_addr, p_rd_buf, rd_len_in_once);
+            rd_len -= rd_len_in_once;
+            p_rd_buf += rd_len_in_once;
+            reg_addr += rd_len_in_once;
+            if(reg_addr >= BHY_I2C_REG_BUFFER_END_ADDR)
+            {
+                reg_addr = BHY_I2C_REG_BUFFER_ZERO_ADDR;/* revert read address */
+            }
+        }
+        else
+        {
+            ret += bhy_i2c_read_internal(dev_addr, reg_addr, p_rd_buf, I2C_ONCE_READ_MAX_COUNT);
+            rd_len -= I2C_ONCE_READ_MAX_COUNT;
+            p_rd_buf += I2C_ONCE_READ_MAX_COUNT;
+            reg_addr += I2C_ONCE_READ_MAX_COUNT;
+        }
+    }
+
+    if (rd_len > 0)
+    {
+        ret += bhy_i2c_read_internal(dev_addr, reg_addr, p_rd_buf, rd_len);
+    }
+
+    return ret;
+}
+
+s8 bhy_initialize_support(void)
+{
+    u8 tmp_retry = 3;
+
+    bhy.bus_write = &bhy_i2c_write;
+    bhy.bus_read = &bhy_i2c_read;
+    bhy.delay_msec = &bhy_delay_msec;
+    bhy.device_addr = BHY_I2C_SLAVE_ADDRESS;
+
+    bhy_init(&bhy);
+
+    bhy_reset();
+
+    while(tmp_retry--)
+    {
+        bhy_get_product_id (&bhy.product_id);
+        if(PRODUCT_ID_7183 == bhy.product_id)
+        {
+            return BHY_SUCCESS;
+        }
+        bhy_delay_msec(BHY_PARAMETER_ACK_DELAY);
+    }
+
+    return BHY_PRODUCT_ID_ERROR;
+}
 
 void bhy_delay_msec(u32 msec)
 {
-	mdelay(msec);
+    mdelay(msec);
 }
 
 
 
 void bhy_reset(void)
 {
-	bhy_set_reset_request(BHY_RESET_ENABLE);
+    bhy_set_reset_request(BHY_RESET_ENABLE);
 }

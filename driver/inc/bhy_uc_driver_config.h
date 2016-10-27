@@ -3,8 +3,8 @@
  *
  * Created: 8/12/2015 13:36:44
  *  Author: Marc-Andre Harvey
- */ 
- 
+ */
+
  /*  Disclaimer
   *
   * Common: Bosch Sensortec products are developed for the consumer goods
@@ -73,21 +73,21 @@
 #define BHY_UC_DRIVER_CONFIG_H_
 
 /****************************************************************************/
-/*						Driver configuration								*/
+/*                      Driver configuration                                */
 /****************************************************************************/
 
-/* Enabling BHY_DEBUG will allow you to parse the strings coming out of a	*/
-/* debug firmware in the BHy. If using a standard firmware then it is not	*/
-/* necessary																*/
+/* Enabling BHY_DEBUG will allow you to parse the strings coming out of a   */
+/* debug firmware in the BHy. If using a standard firmware then it is not   */
+/* necessary                                                                */
 #define BHY_DEBUG 1
 
-/* Enabling BHY_CALLBACK_MODE will allow you to install callback function	*/
+/* Enabling BHY_CALLBACK_MODE will allow you to install callback function   */
 /* that will be called from the bhy_parse_next_fifo_packet function. is uses*/
-/* ~250 bytes of ROM and ~350 bytes of RAM									*/
+/* ~250 bytes of ROM and ~350 bytes of RAM                                  */
 #define BHY_CALLBACK_MODE 1
 
-/* Enabling BST_APPLICATION_BOARD will modify the driver in order to work 	*/
+/* Enabling BST_APPLICATION_BOARD will modify the driver in order to work   */
 /* over USB on the BST application board                                    */
-#define BST_APPLICATION_BOARD 1
+#define BST_APPLICATION_BOARD 0
 
 #endif /* BHY_UC_DRIVER_CONFIG_H_ */

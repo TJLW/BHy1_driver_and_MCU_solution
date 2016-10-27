@@ -1,13 +1,10 @@
-/*						watermark test demo							*/
+/*					Absolute orientation demo						*/
 /*																	*/
-/*	This demo tests the watermark feature of the sensor. It is  	*/
-/*  Useful if your reading buffer is smaller than the fifo you are  */
-/*  Using, but you do not wish to go through the process of emptying*/
-/*  the fifo in multiple reads. You can then set a watermark smaller*/
-/*  Than your buffer size, and the BHI will trigger an interrupt    */
-/*  even it the latency is not reached yet							*/
+/*	This demo streams the absolution rotation vector to a terminal	*/
+/*	program on the computer at 25hz sampling rate					*/
 /*	Terminal configuration : 115200, 8N1							*/
-
+/*  In order to work, you need to have a firmware that supports 	*/
+/*  Accelerometer, gyroscope and magnetomer							*/
 /*  Disclaimer
   *
   * Common: Bosch Sensortec products are developed for the consumer goods
@@ -79,12 +76,12 @@
 
 #include "string.h"
 #include <math.h>
+#include <stdio.h>
 
 /** TWI Bus Clock 400kHz */
 #define TWI_CLK     400000
 
-#define ARRAYSIZE 250	//should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1
-#define WATERMARK 200
+#define ARRAYSIZE 69	//should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1
 
 #define EDBG_FLEXCOM		FLEXCOM7
 #define EDBG_USART			USART7
@@ -98,48 +95,52 @@ const sam_usart_opt_t usart_console_settings = {
 	US_MR_CHMODE_NORMAL
 };
 
+/* sensor timestamp */
+u32 g_bhy_timestamp = 0;
 
-void trigger_logic_analyzer(void);
 void pre_initialize_i2c(void);
 void twi_initialize(void);
 void edbg_usart_enable(void);
 void mdelay(u32 ul_dly_ticks);
 void udelay(u32 ul_dly_ticks);
 void device_specific_initialization(void);
-void print_read_size(u16 bytes_read);
 
-char outbuffer[60] = "";
+void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id);
+void timestamp_callback( bhy_data_scalar_u16_t *new_timestamp );
+
+
+char outBuffer[200] = {0};
 
 /* active delay of ~1us */
 void udelay(u32 ul_dly_ticks)
 {
 	volatile uint32_t dummy;
-	
+
 	for (uint32_t u=0; u<ul_dly_ticks; u++) {
 		for (dummy=0; dummy < 0x06; dummy++) {
 			if (dummy == 0xff) {
 				dummy = 0x100;
-			}		
+			}
 		}
 	}
 }
 
 /* active delay of ~1ms */
 void mdelay(u32 ul_dly_ticks)
-{	
+{
 	volatile uint32_t dummy;
-	
+
 	for (uint32_t u=0; u<ul_dly_ticks; u++) {
 		for (dummy=0; dummy < 0x1BA0; dummy++) {
 			if (dummy == 0xff) {
 				dummy = 0x100;
-			}		
+			}
 		}
 	}
 }
 
 /* this routine issues 9 clock cycles on the SCL line
-   so that all devices release the SDA line if they are 
+   so that all devices release the SDA line if they are
    holding it */
 void pre_initialize_i2c(void) {
 	ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
@@ -159,9 +160,9 @@ void twi_initialize(void) {
 	flexcom_enable(BOARD_FLEXCOM_TWI);
 	flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
 
-	
-	if (twi_master_init(TWI4, &opt) != TWI_SUCCESS) 
-		
+
+	if (twi_master_init(TWI4, &opt) != TWI_SUCCESS)
+
 		while (1) {
 			/* Capture error */
 		}
@@ -180,18 +181,77 @@ void FLEXCOM7_Handler ( void ) {
 
 
 void edbg_usart_enable(void) {
-	
+
 	flexcom_enable(EDBG_FLEXCOM);
 	flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
-	
+
 	usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
 	usart_enable_tx(EDBG_USART);
 	usart_enable_rx(EDBG_USART);
-	
+
 	usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
 	NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
 
-}         
+}
+
+/*****************************************************************************
+ * Function      : timestamp_callback
+ * Description   : This function is time stamp callback function that process
+                   data in fifo.
+ * Input         : bhy_data_scalar_u16_t *new_timestamp
+ * Output        : None
+ * Return        :
+*****************************************************************************/
+void timestamp_callback( bhy_data_scalar_u16_t *new_timestamp )
+{
+    /* updates the system timestamp */
+    bhy_update_system_timestamp( new_timestamp, &g_bhy_timestamp);
+}
+
+void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id)
+{
+    float f_time_stamp = 0;
+    u8 u8_sen_type = 0;
+    s16 s16_x = 0;
+    s16 s16_y = 0;
+    s16 s16_z = 0;
+    float f_x = 0;
+    float f_y = 0;
+    float f_z = 0;
+    //static u32 tick_sec = 0;
+    //static u32 output_count = 0;
+    /* Since a timestamp is always sent before every new data, and that the callbacks   */
+    /* are called while the parsing is done, then the system timestamp is always equal  */
+    /* to the sample timestamp. (in callback mode only)                                 */
+    f_time_stamp = (float)g_bhy_timestamp/32000;
+    //f_time_stamp = (float)g_bhy_timestamp;
+    u8_sen_type = sensor_id;
+    u8_sen_type &= 0x1F;
+    memset(outBuffer,0,sizeof(outBuffer));
+
+    switch(u8_sen_type)
+    {
+        case VS_TYPE_ACCELEROMETER:
+            s16_x = sensor_data->data_vector.x;
+            s16_y = sensor_data->data_vector.y;
+            s16_z = sensor_data->data_vector.z;
+            f_x = (float)s16_x/32768*4;//default range = 4g
+            f_y = (float)s16_y/32768*4;
+            f_z = (float)s16_z/32768*4;
+
+            sprintf(outBuffer,\
+                    "Time:%6.3fs, Sen ID:%d, Accel X:%6.3f, Accel Y:%6.3f, Accel Z:%6.3f.\r\n",\
+                    f_time_stamp,sensor_id,f_x,f_y,f_z);
+            usart_write_line(EDBG_USART, outBuffer);
+            break;
+        default:
+
+            sprintf(outBuffer,"Time:%6.3fs Unknown.\r\n",f_time_stamp);
+            usart_write_line(EDBG_USART, outBuffer);
+            break;
+    }
+    /* gesture recognition sensors are always one-shot, so you need to  */
+}
 
 /* This function regroups all the initialization specific to SAM G55 */
 void device_specific_initialization(void) {
@@ -200,13 +260,13 @@ void device_specific_initialization(void) {
 
 	/* execute this function before board_init */
 	pre_initialize_i2c();
-	
+
 	/* Initialize the board */
 	board_init();
 
 	/* configure the i2c */
 	twi_initialize();
-	
+
 	/* configures the serial port */
 	edbg_usart_enable();
 
@@ -215,65 +275,67 @@ void device_specific_initialization(void) {
 	ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
 }
 
-void print_read_size(u16 bytes_read) {
-	static u16 min_value=0xFFFF, max_value=0;
-	
-	min_value = Min(min_value, bytes_read);
-	max_value = Max(max_value, bytes_read);
-	
-	sprintf(outbuffer, " Min:%04d  Current:%04d  Max:%04d\r", min_value, bytes_read, max_value);
-	
-	usart_write_line(EDBG_USART, outbuffer);
-}
-
 int main(void)
 {
-	u8 array[ARRAYSIZE];
+	u8 array[ARRAYSIZE], *fifoptr, bytes_left_in_fifo=0;
 	u16 bytes_remaining, bytes_read;
-	
+	bhy_data_generic_t	fifo_packet;
+	bhy_data_type_t		packet_type;
+	BHY_RETURN_FUNCTION_TYPE result;
+    s8 mapping[9] = {0};
+    s8 mapping2[9] = {0,1,0,-1,0,0,0,0,1};
+
 	/* Initialize the SAM G55 system */
 	device_specific_initialization();
-	
-	sprintf(outbuffer, "\n\rARRAYSIZE=%d, WATERMARK=%d\n\r", ARRAYSIZE, WATERMARK);
-	usart_write_line(EDBG_USART, outbuffer);
 
-	/* initializes the BHI160 and loads the RAM patch if */
-	/* the ram patch does not output any debug			 */
-	/* information to the fifo, this demo will not work	 */
+	/* initializes the BHI160 and loads the RAM patch */
 	bhy_driver_init(_bhi_fw/*, _bhi_fw_len*/);
-		
+
+
 	//wait for the interrupt pin to go down then up again
 	while (ioport_get_pin_level(EXT1_PIN_GPIO_1));
 	while (!ioport_get_pin_level(EXT1_PIN_GPIO_1));
-	
-	/* empty the fifo for a first time. the interrupt does not contain */
-	/* sensor data													   */
-	bhy_read_fifo(array, ARRAYSIZE, &bytes_read, &bytes_remaining);
-	
-	/* Enables a streaming sensor. The goal here is to generate data */
-	/* in the fifo, not to read the sensor values.								*/
-	bhy_enable_virtual_sensor(VS_TYPE_ROTATION_VECTOR, VS_NON_WAKEUP, 100, 1000, VS_FLUSH_NONE, 0, 0);
-	
-	/* Sets the watermark level */
-	bhy_set_fifo_water_mark(BHY_FIFO_WATER_MARK_NON_WAKEUP,	WATERMARK);
-	
+
+    /* config mapping matrix,it is not necessary to change mapping matrix */
+    bhy_get_mapping_matrix(PHYSICAL_SENSOR_INDEX_ACC,mapping);
+    bhy_set_mapping_matrix (PHYSICAL_SENSOR_INDEX_ACC,mapping2);
+    bhy_get_mapping_matrix(PHYSICAL_SENSOR_INDEX_ACC,mapping);
+
+    /* install time stamp callback */
+    bhy_install_timestamp_callback(VS_WAKEUP, timestamp_callback);
+    bhy_install_timestamp_callback(VS_NON_WAKEUP, timestamp_callback);
+	/* enables the absolute orientation vector and assigns the callback */
+	bhy_install_sensor_callback(VS_TYPE_ACCELEROMETER, VS_WAKEUP, sensors_callback);
+	bhy_enable_virtual_sensor(VS_TYPE_ACCELEROMETER, VS_WAKEUP, 10, 1000, VS_FLUSH_NONE, 0, 0);
+
 	/* continuously read and parse the fifo */
-	while (true) {	
+	while (true) {
 		/* wait until the interrupt fires */
-		
-		while (!ioport_get_pin_level(EXT1_PIN_GPIO_1) ) ;
-		
-		bhy_read_fifo(array, ARRAYSIZE, &bytes_read, &bytes_remaining);
-		
-		print_read_size(bytes_read);
-		
-		if (bytes_remaining) {
-			/* The watermark level was set too high, it didn't manage to read */
-			
-			usart_write_line(EDBG_USART, "\n\rThe watermark level was too low, demo stopped.");
-			
-			/* stops the demo here */
-			while(1);
+		/* unless we already know there are bytes remaining in the fifo */
+
+		while ((ioport_get_pin_level(EXT1_PIN_GPIO_1)>0) || (bytes_remaining>0))
+		{
+    		bhy_read_fifo(array+bytes_left_in_fifo, ARRAYSIZE-bytes_left_in_fifo, &bytes_read, &bytes_remaining);
+
+    		bytes_read += bytes_left_in_fifo;
+
+    		fifoptr = array;
+    		packet_type = BHY_DATA_TYPE_PADDING;
+
+    		do {
+    			/* this function will call callbacks that are registered */
+    			result = bhy_parse_next_fifo_packet( &fifoptr, &bytes_read, &fifo_packet, &packet_type );
+    		/* the logic here is that if doing a partial parsing of the fifo, then we should not parse	*/
+    		/* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete	*/
+    		/* packet																					*/
+    		} while ( (result == BHY_SUCCESS) && (bytes_read > (bytes_remaining ? 18 : 0)) );
+    		bytes_left_in_fifo = 0;
+
+    		if (bytes_remaining) {
+    			/* shifts the remaining bytes to the beginning of the buffer */
+    			while (bytes_left_in_fifo < bytes_read)
+    				array[bytes_left_in_fifo++] = *(fifoptr++);
+    		}
 		}
 	}
 }

@@ -231,7 +231,7 @@ int main(void)
 	/* initializes the BHI160 and loads the RAM patch if */
 	/* the ram patch does not output any debug			 */
 	/* information to the fifo, this demo will not work	 */
-	bhy_driver_init(_bhi_fw, _bhi_fw_len);
+    bhy_driver_init(_bhi_fw/*, _bhi_fw_len*/);
 		
 	//wait for the interrupt pin to go down then up again
 	while (ioport_get_pin_level(EXT1_PIN_GPIO_1));

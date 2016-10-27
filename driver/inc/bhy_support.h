@@ -4,13 +4,13 @@
 **************************************************************************
 * Copyright (C) 2015 Bosch Sensortec GmbH. All Rights Reserved.
 *
-* File:		BHy_support.h
+* File:     BHy_support.h
 *
-* Date:		2015/07/17
+* Date:     2015/07/17
 *
-* Revision:	1.0
+* Revision: 1.0
 *
-* Usage:	BHy on SAM G55
+* Usage:    BHy on SAM G55
 *
 **************************************************************************
 * \section License
@@ -57,10 +57,10 @@
 *************************************************************************/
 /*!
 *
-* @file		bHy_support.h
-* @author	Marc-Andre Harvey
+* @file     bHy_support.h
+* @author   Marc-Andre Harvey
 *
-* @brief	BHy API Support Header File
+* @brief    BHy API Support Header File
 *
 * BHy support defines functions to interface the sensor API
 * with the actual BHy smart sensor via I2C.
@@ -89,14 +89,19 @@
 /*! determines the I2C slave address of BHy
 * The default I2C address of the BHy device is 0101000b (0x28). */
 /* 0x28 CONFLICTS ON ATMEL DEV KITS WITH THE ONBOARD EDBG!!!!   */
-#define BHY_I2C_SLAVE_ADDRESS		BHY_I2C_ADDR1
+#define BHY_I2C_SLAVE_ADDRESS       BHY_I2C_ADDR1
 /*! the external pin on the main board connected to the BNO055 RESET pin */
-//#define BNO055_RESET_PIN				EXT1_PIN_15
+//#define BNO055_RESET_PIN              EXT1_PIN_15
 /*! determines the active state of BNO055 reset */
-//#define BNO055_RESET_ACTIVE				false
+//#define BNO055_RESET_ACTIVE               false
 
 /*! the delay required to wait for BHY chip to reset */
-#define BHY_RESET_DELAY_MS			UINT32_C(50)
+#define BHY_RESET_DELAY_MS          UINT32_C(50)
+
+/*! these two macros are defined for i2c read/write limitation of host */
+/*! users must modify these two macros according to their own IIC hardware design */
+#define I2C_ONCE_WRITE_MAX_COUNT  (8)
+#define I2C_ONCE_READ_MAX_COUNT   (8)
 
 /************************************************************************/
 /**\name Global Variables                                               */
@@ -116,71 +121,71 @@ twi_packet_t bhy_i2c_packet;
 /************************************************************************/
 
 /*!
-* @brief		Initializes BHY smart sensor and its required connections
+* @brief        Initializes BHY smart sensor and its required connections
 *
-* @param[in]	NULL
+* @param[in]    NULL
 *
-* @param[out]	NULL
+* @param[out]   NULL
 *
-* @return		NULL
-*
-*/
-void bhy_initialize_support(void);
-
-/*!
-* @brief		Sends data to BHY via I2C
-*
-* @param[in]	dev_addr	Device I2C slave address
-*
-* @param[in]	reg_addr	Address of destination register
-*
-* @param[in]	reg_data	Pointer to data buffer to be sent
-*
-* @param[in]	length		Length of the data to be sent
-*
-* @retval		0			BHY_SUCCESS
-* @retval		-1			BHY_ERROR
+* @return       NULL
 *
 */
-int8_t bhy_i2c_write(uint8_t dev_addr, uint8_t reg_addr, uint8_t *reg_data, uint16_t length);
+s8 bhy_initialize_support(void);
 
 /*!
-* @brief		Receives data from BHY on I2C
+* @brief        Sends data to BHY via I2C
 *
-* @param[in]	dev_addr	Device I2C slave address
+* @param[in]    dev_addr    Device I2C slave address
 *
-* @param[in]	reg_addr	Address of destination register
+* @param[in]    reg_addr    Address of destination register
 *
-* @param[out]	reg_data	Pointer to data buffer to be received
+* @param[in]    p_wr_buf  Pointer to data buffer to be sent
 *
-* @param[in]	length		Length of the data to be received
+* @param[in]    wr_len    Length of the data to be sent
 *
-* @retval		0			BHY_SUCCESS
-* @retval		-1			BHY_ERROR
+* @retval       0           BHY_SUCCESS
+* @retval       -1          BHY_ERROR
 *
 */
-int8_t bhy_i2c_read(uint8_t dev_addr, uint8_t reg_addr, uint8_t *rx_data, uint16_t length);
+s8 bhy_i2c_write(u8 dev_addr, u8 reg_addr, u8 *p_wr_buf, u16 wr_len);
 
 /*!
-* @brief		Initiates a delay of the length of the argument in milliseconds
+* @brief        Receives data from BHY on I2C
 *
-* @param[in]	msec	Delay length in terms of milliseconds
+* @param[in]    dev_addr    Device I2C slave address
 *
-* @param[out]	NULL
+* @param[in]    reg_addr    Address of destination register
 *
-* @return		NULL
+* @param[out]   p_rd_buf  Pointer to data buffer to be received
+*
+* @param[in]    rd_len    Length of the data to be received
+*
+* @retval       0           BHY_SUCCESS
+* @retval       -1          BHY_ERROR
+*
+*/
+s8 bhy_i2c_read(u8 dev_addr, u8 reg_addr, u8 *p_rd_buf, u16 rd_len);
+
+/*!
+* @brief        Initiates a delay of the length of the argument in milliseconds
+*
+* @param[in]    msec    Delay length in terms of milliseconds
+*
+* @param[out]   NULL
+*
+* @return       NULL
 *
 */
 void bhy_delay_msec(u32 msec);
 
 /*!
-* @brief		Resets the BHY chip
+* @brief        Resets the BHY chip
 *
-* @param[in]	NULL
+* @param[in]    NULL
 *
-* @param[out]	NULL
+* @param[out]   NULL
 *
-* @return		NULL
+* @return       NULL
 *
 */
 void bhy_reset(void);
