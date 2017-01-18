@@ -1,12 +1,8 @@
-/*						Debug string demo							*/
-/*																	*/
-/*	This demo loads the test firmware into the BHI160 and then		*/
-/*	listens for debug output messages from the firmware. It then	*/
-/*	outputs them to terminal program on the computer 				*/
-/*	Terminal configuration : 115200, 8N1							*/
-
-/*  Disclaimer
+/*!
+  * Copyright (C) Robert Bosch. All Rights Reserved.
   *
+  *
+  * <Disclaimer>
   * Common: Bosch Sensortec products are developed for the consumer goods
   * industry. They may only be used within the parameters of the respective valid
   * product data sheet.  Bosch Sensortec products are provided with the express
@@ -65,210 +61,293 @@
   * or otherwise under any patent or patent rights of Bosch. Specifications
   * mentioned in the Information are subject to change without notice.
   *
+  * @file            debug_string_example.c
+  *
+  * @date            12/15/2016
+  *
+  * @brief           This demo show how to load the test firmware and output the debug messages from the firmware.
+  *                     Terminal configuration : 115200, 8N1
   */
+
+/********************************************************************************/
+/*                                  HEADER FILES                                */
+/********************************************************************************/
+#include <string.h>
+#include <math.h>
 
 #include "asf.h"
 #include "conf_board.h"
 #include "led.h"
-
 #include "bhy_uc_driver.h"
+/* for customer , to put the firmware array */
 #include "BHIfw.h"
 
-#include "string.h"
-#include <math.h>
+/********************************************************************************/
+/*                                       MACROS                                 */
+/********************************************************************************/
 
 /** TWI Bus Clock 400kHz */
-#define TWI_CLK     400000
+#define TWI_CLK                400000
+/* should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1 */
+#define ARRAYSIZE              69
+#define EDBG_FLEXCOM           FLEXCOM7
+#define EDBG_USART             USART7
+#define EDBG_FLEXCOM_IRQ       FLEXCOM7_IRQn
+#define DELAY_1US_CIRCLES      0x06
+#define DELAY_1MS_CIRCLES      0x1BA0
+#define MAX_PACKET_LENGTH      18
 
-#define ARRAYSIZE 69	//should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1
-
-#define EDBG_FLEXCOM		FLEXCOM7
-#define EDBG_USART			USART7
-#define EDBG_FLEXCOM_IRQ	FLEXCOM7_IRQn
-
-const sam_usart_opt_t usart_console_settings = {
-	115200,
-	US_MR_CHRL_8_BIT,
-	US_MR_PAR_NO,
-	US_MR_NBSTOP_1_BIT,
-	US_MR_CHMODE_NORMAL
+/*!
+ * @brief This structure holds all setting for the console
+ */
+const sam_usart_opt_t usart_console_settings =
+{
+    115200,
+    US_MR_CHRL_8_BIT,
+    US_MR_PAR_NO,
+    US_MR_NBSTOP_1_BIT,
+    US_MR_CHMODE_NORMAL
 };
 
+/********************************************************************************/
+/*                           STATIC FUNCTION DECLARATIONS                       */
+/********************************************************************************/
+static void i2c_pre_initialize(void);
+static void twi_initialize(void);
+static void edbg_usart_enable(void);
+static void mdelay(uint32_t delay_ms);
+static void udelay(uint32_t delay_us);
+static void device_specific_initialization(void);
+static void debugprintf(const uint8_t * string);
 
-void trigger_logic_analyzer(void);
-void pre_initialize_i2c(void);
-void twi_initialize(void);
-void edbg_usart_enable(void);
-void mdelay(u32 ul_dly_ticks);
-void udelay(u32 ul_dly_ticks);
-void device_specific_initialization(void);
+/********************************************************************************/
+/*                                   FUNCTIONS                                  */
+/********************************************************************************/
 
-void debugprintf (const u8 * string);
-
-
-/* active delay of ~1us */
-void udelay(u32 ul_dly_ticks)
+/*!
+ * @brief This function is used to delay a number of microseconds actively.
+ *
+ * @param[in]   delay_us    microseconds to be delayed
+ */
+static void udelay(uint32_t delay_us)
 {
-	volatile uint32_t dummy;
-	
-	for (uint32_t u=0; u<ul_dly_ticks; u++) {
-		for (dummy=0; dummy < 0x06; dummy++) {
-			if (dummy == 0xff) {
-				dummy = 0x100;
-			}		
-		}
-	}
-}
+    volatile uint32_t dummy;
+    uint32_t calu;
 
-/* active delay of ~1ms */
-void mdelay(u32 ul_dly_ticks)
-{	
-	volatile uint32_t dummy;
-	
-	for (uint32_t u=0; u<ul_dly_ticks; u++) {
-		for (dummy=0; dummy < 0x1BA0; dummy++) {
-			if (dummy == 0xff) {
-				dummy = 0x100;
-			}		
-		}
-	}
-}
-
-/* this routine issues 9 clock cycles on the SCL line
-   so that all devices release the SDA line if they are 
-   holding it */
-void pre_initialize_i2c(void) {
-	ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
-	for (int i=0; i<9;++i) {
-		ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_LOW);
-		udelay(2);
-		ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_HIGH);
-		udelay(1);
-	}
-}
-
-void twi_initialize(void) {
-	twi_options_t opt;
-	opt.master_clk = sysclk_get_cpu_hz();
-	opt.speed = TWI_CLK;
-	/* Enable the peripheral and set TWI mode. */
-	flexcom_enable(BOARD_FLEXCOM_TWI);
-	flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
-
-	
-	if (twi_master_init(TWI4, &opt) != TWI_SUCCESS) 
-		
-		while (1) {
-			/* Capture error */
-		}
+    for (uint32_t u = 0; u < delay_us; u++)
+    {
+        for (dummy = 0; dummy < DELAY_1US_CIRCLES; dummy++)
+        {
+            calu++;
+        }
+    }
 }
 
 
-/* EDBG USART RX IRQ Handler */
-/* just echo characters */
-void FLEXCOM7_Handler ( void ) {
-	uint32_t u32_char;
-	while (usart_is_rx_ready(EDBG_USART)) {
-		usart_getchar(EDBG_USART,&u32_char);
-		usart_putchar(EDBG_USART,u32_char);
-	}
+/*!
+ * @brief This function is used to delay a number of milliseconds actively.
+ *
+ * @param[in]   delay_ms        milliseconds to be delayed
+ */
+static void mdelay(uint32_t delay_ms)
+{
+    volatile uint32_t dummy;
+    uint32_t calu;
+
+    for (uint32_t u = 0; u < delay_ms; u++)
+    {
+        for (dummy = 0; dummy < DELAY_1MS_CIRCLES; dummy++)
+        {
+            calu++;
+        }
+    }
 }
 
+/*!
+ * @brief     This function  issues 9 clock cycles on the SCL line
+ *             so that all devices release the SDA line if they are holding it
+ */
+static void i2c_pre_initialize(void)
+{
+    ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
 
-void edbg_usart_enable(void) {
-	
-	flexcom_enable(EDBG_FLEXCOM);
-	flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
-	
-	usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
-	usart_enable_tx(EDBG_USART);
-	usart_enable_rx(EDBG_USART);
-	
-	usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
-	NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
+    for (int8_t i = 0; i < 9; ++i)
+    {
+        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_LOW);
+        udelay(2);
 
-}         
-
-/* provides a print function to the bhy driver */
-void debugprintf (const u8 * string) {
-	
-	usart_write_line(EDBG_USART, (const char *)string);
+        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_HIGH);
+        udelay(1);
+    }
 }
 
-/* This function regroups all the initialization specific to SAM G55 */
-void device_specific_initialization(void) {
-	/* Initialize the SAM system */
-	sysclk_init();
+/*!
+ * @brief     This function Enable the peripheral and set TWI mode
+ *
+ */
+static void twi_initialize(void)
+{
+    twi_options_t opt;
 
-	/* execute this function before board_init */
-	pre_initialize_i2c();
-	
-	/* Initialize the board */
-	board_init();
+    opt.master_clk = sysclk_get_cpu_hz();
+    opt.speed = TWI_CLK;
+    /* Enable the peripheral and set TWI mode. */
+    flexcom_enable(BOARD_FLEXCOM_TWI);
+    flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
 
-	/* configure the i2c */
-	twi_initialize();
-	
-	/* configures the serial port */
-	edbg_usart_enable();
-
-	/* configures the interrupt pin GPIO */
-	ioport_set_pin_dir(EXT1_PIN_GPIO_1, IOPORT_DIR_INPUT);
-	ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
+    if (twi_master_init(TWI4, &opt) != TWI_SUCCESS)
+    {
+        while (1)
+        {
+            ;/* Capture error */
+        }
+    }
 }
 
+/*!
+ * @brief     This function is EDBG USART RX IRQ Handler ,just echo characters
+ *
+ */
+static void FLEXCOM7_Handler (void)
+{
+    uint32_t tmp_data;
+
+    while (usart_is_rx_ready(EDBG_USART))
+    {
+        usart_getchar(EDBG_USART, &tmp_data);
+        usart_putchar(EDBG_USART, tmp_data);
+    }
+}
+
+/*!
+ * @brief     This function enable usart
+ *
+ */
+static void edbg_usart_enable(void)
+{
+    flexcom_enable(EDBG_FLEXCOM);
+    flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
+
+    usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
+    usart_enable_tx(EDBG_USART);
+    usart_enable_rx(EDBG_USART);
+
+    usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
+    NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
+}
+
+/*!
+ * @brief This function provides a print function to the bhy driver.
+ *
+ * @param[in]   string      the message to be printed
+ */
+static void debugprintf (const uint8_t * string)
+{
+    usart_write_line(EDBG_USART, (const char *)string);
+}
+
+/*!
+ * @brief     This function regroups all the initialization specific to SAM G55
+ *
+ */
+static void device_specific_initialization(void)
+{
+    /* Initialize the SAM system */
+    sysclk_init();
+
+    /* execute this function before board_init */
+    i2c_pre_initialize();
+
+    /* Initialize the board */
+    board_init();
+
+    /* configure the i2c */
+    twi_initialize();
+
+    /* configures the serial port */
+    edbg_usart_enable();
+
+    /* configures the interrupt pin GPIO */
+    ioport_set_pin_dir(EXT1_PIN_GPIO_1, IOPORT_DIR_INPUT);
+    ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
+}
+
+/*!
+ * @brief    main body function
+ *
+ * @retval   result for execution
+ */
 int main(void)
 {
-	u8 array[ARRAYSIZE], *fifoptr, bytes_left_in_fifo=0;
-	u16 bytes_remaining, bytes_read;
-	bhy_data_generic_t	fifo_packet;
-	bhy_data_type_t		packet_type;
-	BHY_RETURN_FUNCTION_TYPE result;
-	
-	/* Initialize the SAM G55 system */
-	device_specific_initialization();
+    uint8_t                   array[ARRAYSIZE];
+    uint8_t                   *fifoptr           = NULL;
+    uint8_t                   bytes_left_in_fifo = 0;
+    uint16_t                  bytes_remaining    = 0;
+    uint16_t                  bytes_read         = 0;
+    bhy_data_generic_t        fifo_packet;
+    bhy_data_type_t           packet_type;
+    BHY_RETURN_FUNCTION_TYPE  result;
 
-	/* initializes the BHI160 and loads the RAM patch if */
-	/* the ram patch does not output any debug			 */
-	/* information to the fifo, this demo will not work	 */
-    bhy_driver_init(_bhi_fw/*, _bhi_fw_len*/);
-		
-	//wait for the interrupt pin to go down then up again
-	while (ioport_get_pin_level(EXT1_PIN_GPIO_1));
-	while (!ioport_get_pin_level(EXT1_PIN_GPIO_1));
-	
-	/* continuously read and parse the fifo */
-	while (true) {	
-		/* wait until the interrupt fires */
-		/* unless we already know there are bytes remaining in the fifo */
-		
-		while (!ioport_get_pin_level(EXT1_PIN_GPIO_1) && !bytes_remaining) ;
-		
-		bhy_read_fifo(array+bytes_left_in_fifo, ARRAYSIZE-bytes_left_in_fifo, &bytes_read, &bytes_remaining);
-		
-		bytes_read += bytes_left_in_fifo;
-		
-		fifoptr = array;	
-		packet_type = BHY_DATA_TYPE_PADDING;
-			
-		do {
-			/* this function will call callbacks that are registered */
-			result = bhy_parse_next_fifo_packet( &fifoptr, &bytes_read, &fifo_packet, &packet_type );
-			
-			/* prints all the debug packets */
-			if (packet_type == BHY_DATA_TYPE_DEBUG)
-				bhy_print_debug_packet(&fifo_packet.data_debug, debugprintf);
-			
-		/* the logic here is that if doing a partial parsing of the fifo, then we should not parse	*/
-		/* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete	*/
-		/* packet																					*/
-		} while ( (result == BHY_SUCCESS) && (bytes_read > (bytes_remaining ? 18 : 0)) );
-		bytes_left_in_fifo = 0;
-			
-		if (bytes_remaining) {
-			/* shifts the remaining bytes to the beginning of the buffer */
-			while (bytes_left_in_fifo < bytes_read) 
-				array[bytes_left_in_fifo++] = *(fifoptr++);
-		}
-	}
+    /* Initialize the SAM G55 system */
+    device_specific_initialization();
+
+    /* initializes the BHI160 and loads the RAM patch if */
+    /* the ram patch does not output any debug           */
+    /* information to the fifo, this demo will not work  */
+    bhy_driver_init(_bhi_fw);
+
+    /* wait for the interrupt pin to go down then up again */
+    while (ioport_get_pin_level(EXT1_PIN_GPIO_1))
+    {
+    }
+
+    while (!ioport_get_pin_level(EXT1_PIN_GPIO_1))
+    {
+    }
+
+    /* continuously read and parse the fifo */
+    while (true)
+    {
+        /* wait until the interrupt fires */
+        /* unless we already know there are bytes remaining in the fifo */
+
+        while (!ioport_get_pin_level(EXT1_PIN_GPIO_1) && !bytes_remaining)
+        {
+        }
+
+        bhy_read_fifo(array + bytes_left_in_fifo, ARRAYSIZE - bytes_left_in_fifo, &bytes_read, &bytes_remaining);
+        bytes_read          += bytes_left_in_fifo;
+        fifoptr             = array;
+        packet_type         = BHY_DATA_TYPE_PADDING;
+
+        do
+        {
+            /* this function will call callbacks that are registered */
+            result = bhy_parse_next_fifo_packet(&fifoptr, &bytes_read, &fifo_packet, &packet_type);
+
+            /* prints all the debug packets */
+            if (packet_type == BHY_DATA_TYPE_DEBUG)
+            {
+                bhy_print_debug_packet(&fifo_packet.data_debug, debugprintf);
+            }
+
+            /* the logic here is that if doing a partial parsing of the fifo, then we should not parse  */
+            /* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete   */
+            /* packet */
+        } while ((result == BHY_SUCCESS) && (bytes_read > (bytes_remaining ? MAX_PACKET_LENGTH : 0)));
+
+        bytes_left_in_fifo = 0;
+
+        if (bytes_remaining)
+        {
+            /* shifts the remaining bytes to the beginning of the buffer */
+            while (bytes_left_in_fifo < bytes_read)
+            {
+                array[bytes_left_in_fifo++] = *(fifoptr++);
+            }
+        }
+    }
+
+    return BHY_SUCCESS;
 }
+/** @}*/

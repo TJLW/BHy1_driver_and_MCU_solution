@@ -1,12 +1,7 @@
-/*
- * bhy_uc_driver_types.h
- *
- * Created: 8/12/2015 13:33:40
- *  Author: Marc-Andre Harvey
- */
-
- /*  Disclaimer
+/*!
+  * Copyright (C) Robert Bosch. All Rights Reserved.
   *
+  * <Disclaimer>
   * Common: Bosch Sensortec products are developed for the consumer goods
   * industry. They may only be used within the parameters of the respective valid
   * product data sheet.  Bosch Sensortec products are provided with the express
@@ -65,6 +60,12 @@
   * or otherwise under any patent or patent rights of Bosch. Specifications
   * mentioned in the Information are subject to change without notice.
   *
+  * @file          bhy_uc_driver_types.h
+  *
+  * @date          12/15/2016
+  *
+  * @brief         header file of bhy_uc_driver.c
+  *                  
   */
 
 
@@ -74,7 +75,7 @@
 #include "bhy_uc_driver_constants.h"
 
 /****************************************************************************/
-/*                      Data types definitions                              */
+/*                                      MACRO                               */
 /****************************************************************************/
 /* system page */
 #define BHY_PAGE_SYSTEM                                         1
@@ -92,6 +93,18 @@
 #define BHY_PARAM_SYSTEM_PHYSICAL_SENSOR_DETAIL_0               32
 #define BHY_PARAM_SYSTEM_PHYSICAL_SENSOR_DETAIL_ACC             33
 
+#define VS_NON_WAKEUP                                           0
+#define VS_WAKEUP                                               32
+#define VS_FLUSH_NONE                                           0x00
+#define VS_FLUSH_ALL                                            0xFF
+#define VS_FLUSH_SINGLE                                         0x01
+
+#define META_EVENT_1_INT_ENABLE_BIT                             (1<<0)
+#define META_EVENT_1_ENABLE_BIT                                 (1<<1)
+
+/****************************************************************************/
+/*                                      ENUM                                */
+/****************************************************************************/
 /* follows section 9.4 table 14 of the BHI160 datasheet */
 typedef enum {
     VS_TYPE_ACCELEROMETER               = VS_ID_ACCELEROMETER,
@@ -139,83 +152,145 @@ typedef enum {
 
 } bhy_meta_event_type_t;
 
+typedef enum {
+    /* group 1 only read for host -s */
+    BHY_GP_REG_20   = 0x4B,
+    BHY_GP_REG_21   = 0x4C,
+    BHY_GP_REG_22   = 0x4D,
+    BHY_GP_REG_23   = 0x4E,
+    BHY_GP_REG_24   = 0x4F,
+    /* group 1 only read for host -e */
+    /* group 2 read & write for host -s */
+    BHY_GP_REG_31   = 0x56,
+    BHY_GP_REG_32   = 0x57,
+    BHY_GP_REG_33   = 0x58,
+    BHY_GP_REG_34   = 0x59,
+    BHY_GP_REG_35   = 0x5A,
+    BHY_GP_REG_36   = 0x5B,
+    /* group 2 read & write for host -e */
+    /* group 3 read & write for host -s */
+    BHY_GP_REG_46   = 0x65,
+    BHY_GP_REG_47   = 0x66,
+    BHY_GP_REG_48   = 0x67,
+    BHY_GP_REG_49   = 0x68,
+    BHY_GP_REG_50   = 0x69,
+    BHY_GP_REG_51   = 0x6A,
+    BHY_GP_REG_52   = 0x6B,
+    /* group 3 read & write for host -e */
+} bhy_gp_register_type_t;
+
+/* follows section 15 of the BHI160 datasheet the order of this enumeration */
+/* is important, do not change it                                           */
+typedef enum {
+    BHY_DATA_TYPE_PADDING               = 0,
+    BHY_DATA_TYPE_QUATERNION            = 1,
+    BHY_DATA_TYPE_VECTOR                = 2,
+    BHY_DATA_TYPE_SCALAR_U8             = 3,
+    BHY_DATA_TYPE_SCALAR_U16            = 4,
+    BHY_DATA_TYPE_SCALAR_S16            = 5,
+    BHY_DATA_TYPE_SCALAR_U24            = 6,
+    BHY_DATA_TYPE_SENSOR_EVENT          = 7,
+    BHY_DATA_TYPE_UNCALIB_VECTOR        = 8,
+    BHY_DATA_TYPE_META_EVENT            = 9,
+    BHY_DATA_TYPE_BSX                   = 10,
+    #if BHY_DEBUG
+    BHY_DATA_TYPE_DEBUG                 = 11,
+    #endif
+} bhy_data_type_t;
+
+typedef enum {
+    META_EVENT_IN_NON_WAKEUP_FIFO       = 1,
+    META_EVENT_IN_WAKEUP_FIFO           = 29,
+} bhy_meta_event_fifo_type_t;
+
+typedef enum
+{
+    PHYSICAL_SENSOR_INDEX_ACC = 0,
+    PHYSICAL_SENSOR_INDEX_MAG,
+    PHYSICAL_SENSOR_INDEX_GYRO,
+    PHYSICAL_SENSOR_COUNT
+} bhy_physical_sensor_index_type_t;
+
+/****************************************************************************/
+/*                               STRUCTRE DEFINITION                        */
+/****************************************************************************/
 
 /* definition of structures of all the data types */
 typedef struct {
-    u8 sensor_id;
+    uint8_t sensor_id;
 } bhy_data_padding_t;
 
 typedef struct {
-    u8  sensor_id;
-    s16 x;
-    s16 y;
-    s16 z;
-    s16 w;
-    s16 estimated_accuracy;
+    uint8_t  sensor_id;
+    int16_t x;
+    int16_t y;
+    int16_t z;
+    int16_t w;
+    int16_t estimated_accuracy;
 } bhy_data_quaternion_t;
 
 typedef struct {
-    u8  sensor_id;
-    s16 x;
-    s16 y;
-    s16 z;
-    u8  status;
+    uint8_t  sensor_id;
+    int16_t x;
+    int16_t y;
+    int16_t z;
+    uint8_t  status;
 } bhy_data_vector_t;
 
 typedef struct {
-    u8 sensor_id;
-    u8 data;
+    uint8_t sensor_id;
+    uint8_t data;
 } bhy_data_scalar_u8_t;
 
 typedef struct {
-    u8  sensor_id;
-    u16 data;
+    uint8_t  sensor_id;
+    uint16_t data;
 } bhy_data_scalar_u16_t;
 
 typedef struct {
-    u8  sensor_id;
-    s16 data;
+    uint8_t  sensor_id;
+    int16_t data;
 } bhy_data_scalar_s16_t;
 
 typedef struct {
-    u8  sensor_id;
-    u32 data;
+    uint8_t  sensor_id;
+    uint32_t data;
 } bhy_data_scalar_u24_t;
 
 typedef struct {
-    u8 sensor_id;
+    uint8_t sensor_id;
 } bhy_data_sensor_event_t;
 
 typedef struct {
-    u8  sensor_id;
-    s16 x;
-    s16 y;
-    s16 z;
-    s16 x_bias;
-    s16 y_bias;
-    s16 z_bias;
-    u8  status;
+    uint8_t  sensor_id;
+    int16_t x;
+    int16_t y;
+    int16_t z;
+    int16_t x_bias;
+    int16_t y_bias;
+    int16_t z_bias;
+    uint8_t  status;
 } bhy_data_uncalib_vector_t;
 
 typedef struct {
-    u8 meta_event_id;
+    uint8_t meta_event_id;
     bhy_meta_event_type_t event_number;
-    u8 sensor_type;
-    u8 event_specific;
+    uint8_t sensor_type;
+    uint8_t event_specific;
 } bhy_data_meta_event_t;
 
 typedef struct {
-    u8 sensor_id;
-    s32 x;
-    s32 y;
-    s32 z;
-    u32 timestamp;
+    uint8_t sensor_id;
+    int32_t x;
+    int32_t y;
+    int32_t z;
+    uint32_t timestamp;
 } bhy_data_bsx_t;
 
 #if BHY_DEBUG
 typedef struct {
-    u8 sensor_id;
-    u8 data[13];
+    uint8_t sensor_id;
+    uint8_t data[13];
 } bhy_data_debug_t;
 #endif
 
@@ -238,47 +313,5 @@ typedef union {
     bhy_data_debug_t            data_debug;
     #endif
 } bhy_data_generic_t;
-
-/* follows section 15 of the BHI160 datasheet the order of this enumeration */
-/* is important, do not change it                                           */
-typedef enum {
-    BHY_DATA_TYPE_PADDING               = 0,
-    BHY_DATA_TYPE_QUATERNION            = 1,
-    BHY_DATA_TYPE_VECTOR                = 2,
-    BHY_DATA_TYPE_SCALAR_U8             = 3,
-    BHY_DATA_TYPE_SCALAR_U16            = 4,
-    BHY_DATA_TYPE_SCALAR_S16            = 5,
-    BHY_DATA_TYPE_SCALAR_U24            = 6,
-    BHY_DATA_TYPE_SENSOR_EVENT          = 7,
-    BHY_DATA_TYPE_UNCALIB_VECTOR        = 8,
-    BHY_DATA_TYPE_META_EVENT            = 9,
-    BHY_DATA_TYPE_BSX                   = 10,
-    #if BHY_DEBUG
-    BHY_DATA_TYPE_DEBUG                 = 11,
-    #endif
-} bhy_data_type_t;
-
-#define VS_NON_WAKEUP   0
-#define VS_WAKEUP       32
-
-#define VS_FLUSH_NONE   0x00
-#define VS_FLUSH_ALL    0xFF
-#define VS_FLUSH_SINGLE 0x01
-
-typedef enum {
-    META_EVENT_IN_NON_WAKEUP_FIFO       = 1,
-    META_EVENT_IN_WAKEUP_FIFO           = 29,
-} bhy_meta_event_fifo_type_t;
-
-#define META_EVENT_1_INT_ENABLE_BIT     (1<<0)
-#define META_EVENT_1_ENABLE_BIT         (1<<1)
-
-typedef enum
-{
-    PHYSICAL_SENSOR_INDEX_ACC = 0,
-    PHYSICAL_SENSOR_INDEX_MAG,
-    PHYSICAL_SENSOR_INDEX_GYRO,
-    PHYSICAL_SENSOR_COUNT
-} bhy_physical_sensor_index_type_t;
 
 #endif /* BHY_UC_DRIVER_TYPES_H_ */

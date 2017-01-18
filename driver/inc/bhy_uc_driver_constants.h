@@ -1,12 +1,8 @@
-/*
- * bhy_uc_driver_constants.h
- *
- * Created: 8/12/2015 13:34:39
- *  Author: Marc-Andre Harvey
- */ 
 
- /*  Disclaimer
+/*!
+  * Copyright (C) Robert Bosch. All Rights Reserved.
   *
+  * <Disclaimer>
   * Common: Bosch Sensortec products are developed for the consumer goods
   * industry. They may only be used within the parameters of the respective valid
   * product data sheet.  Bosch Sensortec products are provided with the express
@@ -65,9 +61,14 @@
   * or otherwise under any patent or patent rights of Bosch. Specifications
   * mentioned in the Information are subject to change without notice.
   *
+  * @file          bhy_uc_driver_constants.h
+  *
+  * @date          12/15/2016
+  *
+  * @brief         header file of bhy_uc_driver.c
+  *
   */
 
- 
 
 #ifndef BHY_UC_DRIVER_CONSTANTS_H_
 #define BHY_UC_DRIVER_CONSTANTS_H_

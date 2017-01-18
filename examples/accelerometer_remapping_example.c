@@ -1,12 +1,7 @@
-/*					Absolute orientation demo						*/
-/*																	*/
-/*	This demo streams the absolution rotation vector to a terminal	*/
-/*	program on the computer at 25hz sampling rate					*/
-/*	Terminal configuration : 115200, 8N1							*/
-/*  In order to work, you need to have a firmware that supports 	*/
-/*  Accelerometer, gyroscope and magnetomer							*/
-/*  Disclaimer
+/*!
+  * Copyright (C) Robert Bosch. All Rights Reserved.
   *
+  * <Disclaimer>
   * Common: Bosch Sensortec products are developed for the consumer goods
   * industry. They may only be used within the parameters of the respective valid
   * product data sheet.  Bosch Sensortec products are provided with the express
@@ -65,277 +60,360 @@
   * or otherwise under any patent or patent rights of Bosch. Specifications
   * mentioned in the Information are subject to change without notice.
   *
+  * @file          accelerometer_remapping_example.c
+  *
+  * @date          12/15/2016
+  *
+  * @brief         The demo shows the example to set remapping for accelerometer sensor
+  *                  Terminal configuration : 115200, 8N1
   */
+
+/********************************************************************************/
+/*                                  HEADER FILES                                */
+/********************************************************************************/
+#include <string.h>
+#include <math.h>
+#include <stdio.h>
 
 #include "asf.h"
 #include "conf_board.h"
 #include "led.h"
-
 #include "bhy_uc_driver.h"
+/* for customer , to put the firmware array */
 #include "BHIfw.h"
 
-#include "string.h"
-#include <math.h>
-#include <stdio.h>
+/********************************************************************************/
+/*                                       MACROS                                 */
+/********************************************************************************/
 
 /** TWI Bus Clock 400kHz */
-#define TWI_CLK     400000
-
-#define ARRAYSIZE 69	//should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1
-
-#define EDBG_FLEXCOM		FLEXCOM7
-#define EDBG_USART			USART7
-#define EDBG_FLEXCOM_IRQ	FLEXCOM7_IRQn
-
-const sam_usart_opt_t usart_console_settings = {
-	115200,
-	US_MR_CHRL_8_BIT,
-	US_MR_PAR_NO,
-	US_MR_NBSTOP_1_BIT,
-	US_MR_CHMODE_NORMAL
+#define TWI_CLK                          400000
+/* should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1 */
+#define ARRAYSIZE                        69
+#define EDBG_FLEXCOM                     FLEXCOM7
+#define EDBG_USART                       USART7
+#define EDBG_FLEXCOM_IRQ                 FLEXCOM7_IRQn
+#define SENSOR_TYPE_MASK                 0x1F
+#define VIRTUAL_SENSOR_SAMPLE_RATE       10
+#define MAX_REPORT_LATENCY_MS            1000
+#define DELAY_1US_CIRCLES                0x06
+#define DELAY_1MS_CIRCLES                0x1BA0
+#define OUT_BUFFER_SIZE                  200
+#define MAX_PACKET_LENGTH                18
+#define TICKS_IN_ONE_SECOND              3200000F
+/*!
+ * @brief This structure holds all setting for the console
+ */
+const sam_usart_opt_t usart_console_settings =
+{
+    115200,
+    US_MR_CHRL_8_BIT,
+    US_MR_PAR_NO,
+    US_MR_NBSTOP_1_BIT,
+    US_MR_CHMODE_NORMAL
 };
 
-/* sensor timestamp */
-u32 g_bhy_timestamp = 0;
+/********************************************************************************/
+/*                                GLOBAL VARIABLES                              */
+/********************************************************************************/
+/* system timestamp */
+static uint32_t bhy_timestamp = 0;
+static uint8_t  out_buffer[OUT_BUFFER_SIZE] = {0};
 
-void pre_initialize_i2c(void);
-void twi_initialize(void);
-void edbg_usart_enable(void);
-void mdelay(u32 ul_dly_ticks);
-void udelay(u32 ul_dly_ticks);
-void device_specific_initialization(void);
+/********************************************************************************/
+/*                          STATIC FUNCTION DECLARATIONS                        */
+/********************************************************************************/
+static void i2c_pre_initialize(void);
+static void twi_initialize(void);
+static void edbg_usart_enable(void);
+static void mdelay(uint32_t delay_ms);
+static void udelay(uint32_t delay_us);
+static void device_specific_initialization(void);
+static void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id);
+static void timestamp_callback(bhy_data_scalar_u16_t *new_timestamp);
 
-void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id);
-void timestamp_callback( bhy_data_scalar_u16_t *new_timestamp );
+/********************************************************************************/
+/*                                    FUNCTIONS                                 */
+/********************************************************************************/
 
-
-char outBuffer[200] = {0};
-
-/* active delay of ~1us */
-void udelay(u32 ul_dly_ticks)
+/*!
+ * @brief This function is used to delay a number of microseconds actively.
+ *
+ * @param[in]   delay_us    microseconds to be delayed
+ */
+static void udelay(uint32_t delay_us)
 {
-	volatile uint32_t dummy;
+    volatile uint32_t dummy;
+    uint32_t calu;
 
-	for (uint32_t u=0; u<ul_dly_ticks; u++) {
-		for (dummy=0; dummy < 0x06; dummy++) {
-			if (dummy == 0xff) {
-				dummy = 0x100;
-			}
-		}
-	}
+    for (uint32_t u = 0; u < delay_us; u++)
+    {
+        for (dummy = 0; dummy < DELAY_1US_CIRCLES; dummy++)
+        {
+            calu++;
+        }
+    }
 }
 
-/* active delay of ~1ms */
-void mdelay(u32 ul_dly_ticks)
+/*!
+ * @brief This function is used to delay a number of milliseconds actively.
+ *
+ * @param[in]   delay_ms        milliseconds to be delayed
+ */
+static void mdelay(uint32_t delay_ms)
 {
-	volatile uint32_t dummy;
+    volatile uint32_t dummy;
+    uint32_t calu;
 
-	for (uint32_t u=0; u<ul_dly_ticks; u++) {
-		for (dummy=0; dummy < 0x1BA0; dummy++) {
-			if (dummy == 0xff) {
-				dummy = 0x100;
-			}
-		}
-	}
+    for (uint32_t u = 0; u < delay_ms; u++)
+    {
+        for (dummy = 0; dummy < DELAY_1MS_CIRCLES; dummy++)
+        {
+            calu++;
+        }
+    }
 }
 
-/* this routine issues 9 clock cycles on the SCL line
-   so that all devices release the SDA line if they are
-   holding it */
-void pre_initialize_i2c(void) {
-	ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
-	for (int i=0; i<9;++i) {
-		ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_LOW);
-		udelay(2);
-		ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_HIGH);
-		udelay(1);
-	}
+/*!
+ * @brief     This function  issues 9 clock cycles on the SCL line
+ *             so that all devices release the SDA line if they are holding it
+ */
+static void i2c_pre_initialize(void)
+{
+    ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
+
+    for (int8_t i = 0; i < 9;++i)
+    {
+        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_LOW);
+        udelay(2);
+
+        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_HIGH);
+        udelay(1);
+    }
 }
 
-void twi_initialize(void) {
-	twi_options_t opt;
-	opt.master_clk = sysclk_get_cpu_hz();
-	opt.speed = TWI_CLK;
-	/* Enable the peripheral and set TWI mode. */
-	flexcom_enable(BOARD_FLEXCOM_TWI);
-	flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
+/*!
+ * @brief     This function Enable the peripheral and set TWI mode
+ *
+ */
+static void twi_initialize(void)
+{
+    twi_options_t opt;
 
+    opt.master_clk = sysclk_get_cpu_hz();
+    opt.speed = TWI_CLK;
+    /* Enable the peripheral and set TWI mode. */
+    flexcom_enable(BOARD_FLEXCOM_TWI);
+    flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
 
-	if (twi_master_init(TWI4, &opt) != TWI_SUCCESS)
-
-		while (1) {
-			/* Capture error */
-		}
+    if (twi_master_init(TWI4, &opt) != TWI_SUCCESS)
+    {
+        while (1)
+        {
+            ;/* Capture error */
+        }
+    }
 }
 
+/*!
+ * @brief     This function is EDBG USART RX IRQ Handler ,just echo characters
+ *
+ */
+static void FLEXCOM7_Handler (void)
+{
+    uint32_t tmp_data;
 
-/* EDBG USART RX IRQ Handler */
-/* just echo characters */
-void FLEXCOM7_Handler ( void ) {
-	uint32_t u32_char;
-	while (usart_is_rx_ready(EDBG_USART)) {
-		usart_getchar(EDBG_USART,&u32_char);
-		usart_putchar(EDBG_USART,u32_char);
-	}
+    while (usart_is_rx_ready(EDBG_USART))
+    {
+        usart_getchar(EDBG_USART, &tmp_data);
+        usart_putchar(EDBG_USART, tmp_data);
+    }
 }
 
+/*!
+ * @brief     This function enable usart
+ *
+ */
+static void edbg_usart_enable(void)
+{
+    flexcom_enable(EDBG_FLEXCOM);
+    flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
 
-void edbg_usart_enable(void) {
+    usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
+    usart_enable_tx(EDBG_USART);
+    usart_enable_rx(EDBG_USART);
+    usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
 
-	flexcom_enable(EDBG_FLEXCOM);
-	flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
-
-	usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
-	usart_enable_tx(EDBG_USART);
-	usart_enable_rx(EDBG_USART);
-
-	usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
-	NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
-
+    NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
 }
 
-/*****************************************************************************
- * Function      : timestamp_callback
- * Description   : This function is time stamp callback function that process
-                   data in fifo.
- * Input         : bhy_data_scalar_u16_t *new_timestamp
- * Output        : None
- * Return        :
-*****************************************************************************/
-void timestamp_callback( bhy_data_scalar_u16_t *new_timestamp )
+/*!
+ * @brief This function is time stamp callback function that process data in fifo.
+ *
+ * @param[in]   new_timestamp
+ */
+static void timestamp_callback(bhy_data_scalar_u16_t *new_timestamp)
 {
     /* updates the system timestamp */
-    bhy_update_system_timestamp( new_timestamp, &g_bhy_timestamp);
+    bhy_update_system_timestamp(new_timestamp, &bhy_timestamp);
 }
 
-void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id)
+/*!
+ * @brief This function is  callback function for acquring sensor datas
+ *
+ * @param[in]   sensor_data
+ * @param[in]   sensor_id
+ */
+static void sensors_callback(bhy_data_generic_t *sensor_data, bhy_virtual_sensor_t sensor_id)
 {
-    float f_time_stamp = 0;
-    u8 u8_sen_type = 0;
-    s16 s16_x = 0;
-    s16 s16_y = 0;
-    s16 s16_z = 0;
-    float f_x = 0;
-    float f_y = 0;
-    float f_z = 0;
-    //static u32 tick_sec = 0;
-    //static u32 output_count = 0;
+    float   time_stamp    = 0;
+    uint8_t sensor_type   = 0;
+    int16_t x_raw         = 0;
+    int16_t y_raw         = 0;
+    int16_t z_raw         = 0;
+    float   x_data        = 0;
+    float   y_data        = 0;
+    float   z_data        = 0;
+
     /* Since a timestamp is always sent before every new data, and that the callbacks   */
     /* are called while the parsing is done, then the system timestamp is always equal  */
     /* to the sample timestamp. (in callback mode only)                                 */
-    f_time_stamp = (float)g_bhy_timestamp/32000;
-    //f_time_stamp = (float)g_bhy_timestamp;
-    u8_sen_type = sensor_id;
-    u8_sen_type &= 0x1F;
-    memset(outBuffer,0,sizeof(outBuffer));
+    time_stamp = (float)(bhy_timestamp) / TICKS_IN_ONE_SECOND;
+    sensor_type = sensor_id;
+    sensor_type &= SENSOR_TYPE_MASK;
+    memset(out_buffer, 0, sizeof(out_buffer));
 
-    switch(u8_sen_type)
+    switch(sensor_type)
     {
         case VS_TYPE_ACCELEROMETER:
-            s16_x = sensor_data->data_vector.x;
-            s16_y = sensor_data->data_vector.y;
-            s16_z = sensor_data->data_vector.z;
-            f_x = (float)s16_x/32768*4;//default range = 4g
-            f_y = (float)s16_y/32768*4;
-            f_z = (float)s16_z/32768*4;
-
-            sprintf(outBuffer,\
+            x_raw  = sensor_data->data_vector.x;
+            y_raw  = sensor_data->data_vector.y;
+            z_raw  = sensor_data->data_vector.z;
+            /* The resolution is  15bit ,the default range is 4g, actual acceleration equals: raw_data/(exp(2,15) == 32768) */
+            x_data = (float)x_raw / 32768.0f * 4.0f;
+            y_data = (float)y_raw / 32768.0f * 4.0f;
+            z_data = (float)z_raw / 32768.0f * 4.0f;
+            sprintf(out_buffer,\
                     "Time:%6.3fs, Sen ID:%d, Accel X:%6.3f, Accel Y:%6.3f, Accel Z:%6.3f.\r\n",\
-                    f_time_stamp,sensor_id,f_x,f_y,f_z);
-            usart_write_line(EDBG_USART, outBuffer);
+                    time_stamp,sensor_id,x_data,y_data,z_data);
+            usart_write_line(EDBG_USART, out_buffer);
             break;
-        default:
 
-            sprintf(outBuffer,"Time:%6.3fs Unknown.\r\n",f_time_stamp);
-            usart_write_line(EDBG_USART, outBuffer);
+        default:
+            sprintf(out_buffer,"Time:%6.3fs Unknown.\r\n",time_stamp);
+            usart_write_line(EDBG_USART, out_buffer);
             break;
     }
     /* gesture recognition sensors are always one-shot, so you need to  */
 }
 
-/* This function regroups all the initialization specific to SAM G55 */
-void device_specific_initialization(void) {
-	/* Initialize the SAM system */
-	sysclk_init();
+/*!
+ * @brief     This function regroups all the initialization specific to SAM G55
+ *
+ */
+static void device_specific_initialization(void)
+{
+    /* Initialize the SAM system */
+    sysclk_init();
 
-	/* execute this function before board_init */
-	pre_initialize_i2c();
+    /* execute this function before board_init */
+    i2c_pre_initialize();
 
-	/* Initialize the board */
-	board_init();
+    /* Initialize the board */
+    board_init();
 
-	/* configure the i2c */
-	twi_initialize();
+    /* configure the i2c */
+    twi_initialize();
 
-	/* configures the serial port */
-	edbg_usart_enable();
+    /* configures the serial port */
+    edbg_usart_enable();
 
-	/* configures the interrupt pin GPIO */
-	ioport_set_pin_dir(EXT1_PIN_GPIO_1, IOPORT_DIR_INPUT);
-	ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
+    /* configures the interrupt pin GPIO */
+    ioport_set_pin_dir(EXT1_PIN_GPIO_1, IOPORT_DIR_INPUT);
+    ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
 }
 
+/*!
+ * @brief     main body function
+ *
+ * @retval   result for execution
+ */
 int main(void)
 {
-	u8 array[ARRAYSIZE], *fifoptr, bytes_left_in_fifo=0;
-	u16 bytes_remaining, bytes_read;
-	bhy_data_generic_t	fifo_packet;
-	bhy_data_type_t		packet_type;
-	BHY_RETURN_FUNCTION_TYPE result;
-    s8 mapping[9] = {0};
-    s8 mapping2[9] = {0,1,0,-1,0,0,0,0,1};
+    uint8_t                   array[ARRAYSIZE];
+    uint8_t                   *fifoptr                     = NULL;
+    uint8_t                   bytes_left_in_fifo           = 0;
+    uint16_t                  bytes_remaining              = 0;
+    uint16_t                  bytes_read                   = 0;
+    bhy_data_generic_t        fifo_packet;
+    bhy_data_type_t           packet_type;
+    BHY_RETURN_FUNCTION_TYPE  result;
+    int8_t                    bhy_mapping_matrix_init[3*3]   = {0};
+    int8_t                    bhy_mapping_matrix_config[3*3] = {0,1,0,-1,0,0,0,0,1};
 
-	/* Initialize the SAM G55 system */
-	device_specific_initialization();
+    /* Initialize the SAM G55 system */
+    device_specific_initialization();
 
-	/* initializes the BHI160 and loads the RAM patch */
-	bhy_driver_init(_bhi_fw/*, _bhi_fw_len*/);
+    /* initializes the BHI160 and loads the RAM patch */
+    bhy_driver_init(_bhi_fw/*, _bhi_fw_len*/);
 
+    /* wait for the interrupt pin to go down then up again */
+    while (ioport_get_pin_level(EXT1_PIN_GPIO_1))
+    {
+    }
 
-	//wait for the interrupt pin to go down then up again
-	while (ioport_get_pin_level(EXT1_PIN_GPIO_1));
-	while (!ioport_get_pin_level(EXT1_PIN_GPIO_1));
+    while (!ioport_get_pin_level(EXT1_PIN_GPIO_1))
+    {
+    }
 
     /* config mapping matrix,it is not necessary to change mapping matrix */
-    bhy_get_mapping_matrix(PHYSICAL_SENSOR_INDEX_ACC,mapping);
-    bhy_set_mapping_matrix (PHYSICAL_SENSOR_INDEX_ACC,mapping2);
-    bhy_get_mapping_matrix(PHYSICAL_SENSOR_INDEX_ACC,mapping);
+    bhy_mapping_matrix_get(PHYSICAL_SENSOR_INDEX_ACC, bhy_mapping_matrix_init);
+    bhy_mapping_matrix_set(PHYSICAL_SENSOR_INDEX_ACC, bhy_mapping_matrix_config);
+    bhy_mapping_matrix_get(PHYSICAL_SENSOR_INDEX_ACC, bhy_mapping_matrix_init);
 
     /* install time stamp callback */
     bhy_install_timestamp_callback(VS_WAKEUP, timestamp_callback);
     bhy_install_timestamp_callback(VS_NON_WAKEUP, timestamp_callback);
-	/* enables the absolute orientation vector and assigns the callback */
-	bhy_install_sensor_callback(VS_TYPE_ACCELEROMETER, VS_WAKEUP, sensors_callback);
-	bhy_enable_virtual_sensor(VS_TYPE_ACCELEROMETER, VS_WAKEUP, 10, 1000, VS_FLUSH_NONE, 0, 0);
 
-	/* continuously read and parse the fifo */
-	while (true) {
-		/* wait until the interrupt fires */
-		/* unless we already know there are bytes remaining in the fifo */
+    /* enables the accelerator sensors and assigns the callback */
+    bhy_install_sensor_callback(VS_TYPE_ACCELEROMETER, VS_WAKEUP, sensors_callback);
+    bhy_enable_virtual_sensor(VS_TYPE_ACCELEROMETER, VS_WAKEUP, VIRTUAL_SENSOR_SAMPLE_RATE, MAX_REPORT_LATENCY_MS, \
+                              VS_FLUSH_NONE, 0, 0);
 
-		while ((ioport_get_pin_level(EXT1_PIN_GPIO_1)>0) || (bytes_remaining>0))
-		{
-    		bhy_read_fifo(array+bytes_left_in_fifo, ARRAYSIZE-bytes_left_in_fifo, &bytes_read, &bytes_remaining);
+    /* continuously read and parse the fifo */
+    while (true)
+    {
+        /* wait until the interrupt fires */
+        /* unless we already know there are bytes remaining in the fifo */
+        while ((ioport_get_pin_level(EXT1_PIN_GPIO_1) > 0) || (bytes_remaining > 0))
+        {
+            bhy_read_fifo(array + bytes_left_in_fifo, ARRAYSIZE - bytes_left_in_fifo, &bytes_read, &bytes_remaining);
+            bytes_read           += bytes_left_in_fifo;
+            fifoptr              = array;
+            packet_type          = BHY_DATA_TYPE_PADDING;
 
-    		bytes_read += bytes_left_in_fifo;
+            do
+            {
+                /* this function will call callbacks that are registered */
+                result = bhy_parse_next_fifo_packet(&fifoptr, &bytes_read, &fifo_packet, &packet_type);
+                /* the logic here is that if doing a partial parsing of the fifo, then we should not parse  */
+                /* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete   */
+                /* packet */
+            } while ((result == BHY_SUCCESS) && (bytes_read > (bytes_remaining ? MAX_PACKET_LENGTH : 0)));
 
-    		fifoptr = array;
-    		packet_type = BHY_DATA_TYPE_PADDING;
+            bytes_left_in_fifo = 0;
 
-    		do {
-    			/* this function will call callbacks that are registered */
-    			result = bhy_parse_next_fifo_packet( &fifoptr, &bytes_read, &fifo_packet, &packet_type );
-    		/* the logic here is that if doing a partial parsing of the fifo, then we should not parse	*/
-    		/* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete	*/
-    		/* packet																					*/
-    		} while ( (result == BHY_SUCCESS) && (bytes_read > (bytes_remaining ? 18 : 0)) );
-    		bytes_left_in_fifo = 0;
+            if (bytes_remaining)
+            {
+                /* shifts the remaining bytes to the beginning of the buffer */
+                while (bytes_left_in_fifo < bytes_read)
+                {
+                    array[bytes_left_in_fifo++] = *(fifoptr++);
+                }
+            }
+        }
+    }
 
-    		if (bytes_remaining) {
-    			/* shifts the remaining bytes to the beginning of the buffer */
-    			while (bytes_left_in_fifo < bytes_read)
-    				array[bytes_left_in_fifo++] = *(fifoptr++);
-    		}
-		}
-	}
+    return BHY_SUCCESS;
 }
+/** @}*/

@@ -1,12 +1,7 @@
-/*
- * bhy_uc_driver.h
- *
- * Created: 8/12/2015 13:33:40
- *  Author: Marc-Andre Harvey
- */
-
- /*  Disclaimer
+/*!
+  * Copyright (C) Robert Bosch. All Rights Reserved.
   *
+  * <Disclaimer>
   * Common: Bosch Sensortec products are developed for the consumer goods
   * industry. They may only be used within the parameters of the respective valid
   * product data sheet.  Bosch Sensortec products are provided with the express
@@ -65,6 +60,14 @@
   * or otherwise under any patent or patent rights of Bosch. Specifications
   * mentioned in the Information are subject to change without notice.
   *
+  *
+  * @file              bhy_uc_driver.h
+  *
+  * @date              12/19/2016
+  *
+  * @brief             headfile of driver on MCU for bhy
+  *
+  *
   */
 
 #ifndef BHY_UC_DRIVER_H_
@@ -74,58 +77,99 @@
 #include "bhy_uc_driver_types.h"
 
 /****************************************************************************/
-/*                          Driver Functions                                */
+/*                          Driver Functions                                                                                      */
 /****************************************************************************/
 
 
 /* initializes the driver, the API and loads the ram patch into the sensor  */
 BHY_RETURN_FUNCTION_TYPE bhy_driver_init
-    (const u8 *bhy_fw_data/*, const u32 bhy_fw_len*/);
+    (const uint8_t *bhy_fw_data);
 
 /* this function configures meta event */
 BHY_RETURN_FUNCTION_TYPE bhy_meta_event_set_config( bhy_meta_event_type_t meta_event_id,
                                                 bhy_meta_event_fifo_type_t fifo_sel,
-                                                u8 enable_state, u8 int_enable_state);
+                                                uint8_t enable_state, uint8_t int_enable_state);
 
 /* this function gets configuration from specific meta event */
 BHY_RETURN_FUNCTION_TYPE bhy_meta_event_get_config( bhy_meta_event_type_t meta_event_id,
                                                 bhy_meta_event_fifo_type_t fifo_sel,
-                                                u8* p_enable_state, u8* p_int_enable_state);
+                                                uint8_t* p_enable_state, uint8_t* p_int_enable_state);
 
 /*****************************************************************************
- * Function      : bhy_set_mapping_matrix
+ * Function      : bhy_mapping_matrix_set
  * Description   : Set mapping matrix to a corresponding physical sensor.
  * Input         : index: physical sensor index.
  *                          PHYSICAL_SENSOR_INDEX_ACC = 0,
  *                          PHYSICAL_SENSOR_INDEX_MAG = 1,
  *                          PHYSICAL_SENSOR_INDEX_GYRO = 2,
- *                 p_mapping_matrix: pointer to a "s8 mapping_matrix[9]".
+ *                 p_mapping_matrix: pointer to a "int8_t mapping_matrix[9]".
  * Output        : None
  * Return        :
 *****************************************************************************/
-BHY_RETURN_FUNCTION_TYPE bhy_set_mapping_matrix(bhy_physical_sensor_index_type_t index , s8* p_mapping_matrix);
+BHY_RETURN_FUNCTION_TYPE bhy_mapping_matrix_set(bhy_physical_sensor_index_type_t index , int8_t *p_mapping_matrix);
 
 /*****************************************************************************
- * Function      : bhy_get_mapping_matrix
+ * Function      : bhy_mapping_matrix_get
  * Description   : Get mapping matrix from a corresponding physical sensor.
  * Input         : index: physical sensor index.
  *                          PHYSICAL_SENSOR_INDEX_ACC = 0,
  *                          PHYSICAL_SENSOR_INDEX_MAG = 1,
  *                          PHYSICAL_SENSOR_INDEX_GYRO = 2,
- * Output        : p_mapping_matrix: pointer to a "s8 mapping_matrix[9]".
+ * Output        : p_mapping_matrix: pointer to a "int8_t mapping_matrix[9]".
  * Return        :
 *****************************************************************************/
-BHY_RETURN_FUNCTION_TYPE bhy_get_mapping_matrix(bhy_physical_sensor_index_type_t index , s8* p_mapping_matrix);
+BHY_RETURN_FUNCTION_TYPE bhy_mapping_matrix_get(bhy_physical_sensor_index_type_t index , int8_t *p_mapping_matrix);
+
+/* This function uses the soft pass-through feature to perform single multi-*/
+/* byte transfers in order to write the data. parameters:                   */
+/* addr             i2c address of the slave device                         */
+/* reg              register address to write to                            */
+/* data             pointer to the data buffer with data to write to the    */
+/*                  slave                                                   */
+/* length           number of bytes to write to the slave                   */
+/* increment_reg    if true, the function will automatically increment the  */
+/*                  register between successive 4-bytes transfers           */
+BHY_RETURN_FUNCTION_TYPE bhy_soft_passthru_write(uint8_t addr, uint8_t reg, uint8_t *data, uint8_t length, uint8_t increment_reg);
+
+/* This function uses the soft pass-through feature to perform single multi-*/
+/* byte transfers in order to read the data. parameters:                    */
+/* addr             i2c address of the slave device                         */
+/* reg              register address to read from                           */
+/* data             pointer to the data buffer where to place the data read */
+/*                  from the slave                                          */
+/* length           number of bytes to fread from the slave                 */
+/* increment_reg    if true, the function will automatically increment the  */
+/*                  register between successive 4-bytes transfers           */
+BHY_RETURN_FUNCTION_TYPE bhy_soft_passthru_read(uint8_t addr, uint8_t reg, uint8_t *data, uint8_t length, uint8_t increment_reg);
+
+/*****************************************************************************
+ * Function      : bhy_gp_register_write
+ * Description   : Write data to specific GP register.
+ * Input         : bhy_gp_register_type_t: GP register address.
+ *               : p_data: pointer to receive buffer.
+ * Output        :
+ * Return        :
+*****************************************************************************/
+BHY_RETURN_FUNCTION_TYPE bhy_gp_register_write(bhy_gp_register_type_t gp_reg, uint8_t data);
+
+/*****************************************************************************
+ * Function      : bhy_gp_register_read
+ * Description   : Read data from specific GP register.
+ * Input         : bhy_gp_register_type_t: GP register address.
+ * Output        : p_data: pointer to receive buffer.
+ * Return        :
+*****************************************************************************/
+BHY_RETURN_FUNCTION_TYPE bhy_gp_register_read(bhy_gp_register_type_t gp_reg, uint8_t *p_data);
 
 /* this functions enables the selected virtual sensor                       */
 BHY_RETURN_FUNCTION_TYPE bhy_enable_virtual_sensor
-    (bhy_virtual_sensor_t sensor_id, u8 wakeup_status, u16 sample_rate,
-     u16 max_report_latency_ms, u8 flush_sensor, u16 change_sensitivity,
-     u16 dynamic_range);
+    (bhy_virtual_sensor_t sensor_id, uint8_t wakeup_status, uint16_t sample_rate,
+     uint16_t max_report_latency_ms, uint8_t flush_sensor, uint16_t change_sensitivity,
+     uint16_t dynamic_range);
 
 /* this functions disables the selected virtual sensor                      */
 BHY_RETURN_FUNCTION_TYPE bhy_disable_virtual_sensor
-    (bhy_virtual_sensor_t sensor_id, u8 wakeup_status);
+    (bhy_virtual_sensor_t sensor_id, uint8_t wakeup_status);
 
 /* retrieves the fifo data. it needs a buffer of at least 51 bytes to work  */
 /* it outputs the data into the variable buffer. the number of bytes read   */
@@ -140,8 +184,8 @@ BHY_RETURN_FUNCTION_TYPE bhy_disable_virtual_sensor
 /*                  This function automatically keeps track of the current  */
 /*                  fifo readout progress.
 */
-BHY_RETURN_FUNCTION_TYPE bhy_read_fifo
-    (u8 * buffer, u16 buffer_size, u16 * bytes_read, u16 * bytes_left);
+BHY_RETURN_FUNCTION_TYPE bhy_read_fifo(uint8_t * buffer, uint16_t buffer_size,
+                uint16_t * bytes_read, uint16_t * bytes_left);
 
 /* This function parses the next fifo packet and return it into a generic   */
 /* data structure while telling you what the data type is so you can        */
@@ -155,7 +199,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_read_fifo
 /* fifo_data_output     buffer in which to place the data                   */
 /* fifo_data_type       data type output                                    */
 BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet
-    (u8 **fifo_buffer, u16 *fifo_buffer_length,
+    (uint8_t **fifo_buffer, uint16_t *fifo_buffer_length,
     bhy_data_generic_t * fifo_data_output, bhy_data_type_t * fifo_data_type);
 
 /* This function will detect the timestamp packet accordingly and update    */
@@ -166,7 +210,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet
 /*                      timestamp in 1/32000th seconds. it will wrap around */
 /*                      every 36 hours.                                     */
 BHY_RETURN_FUNCTION_TYPE bhy_update_system_timestamp(bhy_data_scalar_u16_t *timestamp_packet,
-u32 * system_timestamp);
+           uint32_t * system_timestamp);
 
 /* This function writes arbitrary data to an arbitrary parameter page. To be*/
 /* used carefully since it can override system configurations. Refer to the */
@@ -175,7 +219,8 @@ u32 * system_timestamp);
 /* parameter            Parameter number. Valid range 0 to 127.             */
 /* data                 Pointer to the data source to write to.             */
 /* length               Number of bytes to write. Valid range 1 to 8.       */
-BHY_RETURN_FUNCTION_TYPE bhy_write_parameter_page(u8 page, u8 parameter, u8 * data, u8 length);
+BHY_RETURN_FUNCTION_TYPE bhy_write_parameter_page(uint8_t page, uint8_t parameter,
+            uint8_t *data, uint8_t length);
 
 /* This function reads arbitrary data to an arbitrary parameter page. To be*/
 /* used carefully since it can override system configurations. Refer to the */
@@ -184,36 +229,41 @@ BHY_RETURN_FUNCTION_TYPE bhy_write_parameter_page(u8 page, u8 parameter, u8 * da
 /* parameter            Parameter number. Valid range 0 to 127.             */
 /* data                 Pointer to the data source to write to.             */
 /* length               Number of bytes to read. Valid range 1 to 16.       */
-BHY_RETURN_FUNCTION_TYPE bhy_read_parameter_page(u8 page, u8 parameter, u8 * data, u8 length);
+BHY_RETURN_FUNCTION_TYPE bhy_read_parameter_page(uint8_t page, uint8_t parameter,
+            uint8_t *data, uint8_t length);
+
+/* This function write a new SIC matrix to the BHy. Arguments are:          */
+/* sic_matrix           pointer to array of 9 floats with SIC matrix        */
+BHY_RETURN_FUNCTION_TYPE bhy_set_sic_matrix(float * sic_matrix);
+
+/* This function reads out the current SIC matrix from BHy. Arguments are:  */
+/* sic_matrix           pointer to array of 9 floats with SIC matrix        */
+BHY_RETURN_FUNCTION_TYPE bhy_get_sic_matrix(float * sic_matrix);
 
 #if BHY_DEBUG
-
-    /* This function outputs the debug data to function pointer. You need to    */
-    /* provide a function that takes as argument a zero-terminated string and   */
-    /* prints it                                                                */
-    void bhy_print_debug_packet
-    (bhy_data_debug_t *packet, void (*debug_print_ptr)(const u8 *));
-
+/* This function outputs the debug data to function pointer. You need to    */
+/* provide a function that takes as argument a zero-terminated string and   */
+/* prints it                                                                */
+void bhy_print_debug_packet(bhy_data_debug_t *packet, void (*debug_print_ptr)(const uint8_t *));
 #endif
 
 
 #if BHY_CALLBACK_MODE
-
-    /* These functions will install the callback and return an error code if    */
-    /* there is already a callback installed                                    */
-    BHY_RETURN_FUNCTION_TYPE bhy_install_sensor_callback ( bhy_virtual_sensor_t sensor_id, u8 wakeup_status, void (*sensor_callback)(bhy_data_generic_t *, bhy_virtual_sensor_t) );
-    BHY_RETURN_FUNCTION_TYPE bhy_install_timestamp_callback ( u8 wakeup_status, void (*timestamp_callback)(bhy_data_scalar_u16_t *) );
-    BHY_RETURN_FUNCTION_TYPE bhy_install_meta_event_callback ( bhy_meta_event_type_t meta_event_id, void (*meta_event_callback)(bhy_data_meta_event_t *, bhy_meta_event_type_t) );
-
+/* These functions will install the callback and return an error code if    */
+/* there is already a callback installed                                    */
+BHY_RETURN_FUNCTION_TYPE bhy_install_sensor_callback (bhy_virtual_sensor_t sensor_id, uint8_t wakeup_status, void (*sensor_callback)(bhy_data_generic_t *, bhy_virtual_sensor_t));
+BHY_RETURN_FUNCTION_TYPE bhy_install_timestamp_callback(uint8_t wakeup_status, void (*timestamp_callback)(bhy_data_scalar_u16_t *));
+BHY_RETURN_FUNCTION_TYPE bhy_install_meta_event_callback(bhy_meta_event_type_t meta_event_id, void (*meta_event_callback)(bhy_data_meta_event_t *, bhy_meta_event_type_t));
 
 
-    /* These functions will uninstall the callback and return an error code if  */
-    /* there was no callback installed                                          */
-    BHY_RETURN_FUNCTION_TYPE bhy_uninstall_sensor_callback ( bhy_virtual_sensor_t sensor_id, u8 wakeup_status );
-    BHY_RETURN_FUNCTION_TYPE bhy_uninstall_timestamp_callback ( u8 wakeup_status );
-    BHY_RETURN_FUNCTION_TYPE bhy_uninstall_meta_event_callback ( bhy_meta_event_type_t meta_event_id );
+/* These functions will uninstall the callback and return an error code if  */
+/* there was no callback installed                                          */
+BHY_RETURN_FUNCTION_TYPE bhy_uninstall_sensor_callback (bhy_virtual_sensor_t sensor_id, uint8_t wakeup_status);
+BHY_RETURN_FUNCTION_TYPE bhy_uninstall_timestamp_callback (uint8_t wakeup_status );
+BHY_RETURN_FUNCTION_TYPE bhy_uninstall_meta_event_callback (bhy_meta_event_type_t meta_event_id);
 
 #endif
 
-
 #endif /* BHY_UC_DRIVER_H_ */
+
+/** @}*/

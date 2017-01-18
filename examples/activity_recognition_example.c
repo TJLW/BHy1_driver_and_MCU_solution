@@ -1,11 +1,8 @@
-/*					Activity recognition demo						*/
-/*																	*/
-/*	This demo showcases the BHI160 activity recognition. It records */
-/*	all of the user's activity into the non-wakeup FIFO, allowing	*/
-/*	it overflow if necessary, then when the user pressed SW0, it	*/
-/*	outputs it to the terminal window. Configuration 115200, 8N1	*/
-
-/*  Disclaimer
+/*!
+  * Copyright (C) Robert Bosch. All Rights Reserved.
+  *
+  *
+  * <Disclaimer>
   *
   * Common: Bosch Sensortec products are developed for the consumer goods
   * industry. They may only be used within the parameters of the respective valid
@@ -65,281 +62,415 @@
   * or otherwise under any patent or patent rights of Bosch. Specifications
   * mentioned in the Information are subject to change without notice.
   *
+  *
+  * @file          activity_recognition_example.c
+  *
+  * @date          12/15/2016
+  *
+  * @brief         example to showcases the BHI160 activity recognition.
+  *                 It records all of the user's activity into the non-wakeup FIFO and outputs it to the terminal window
+  *                 Configuration 115200, 8N
   */
-  
+
+/********************************************************************************/
+/*                                  HEADER FILES                                */
+/********************************************************************************/
+
+#include <string.h>
+#include <math.h>
+#include <stdio.h>
+
 #include "asf.h"
 #include "conf_board.h"
 #include "led.h"
-
 #include "bhy_uc_driver.h"
+/* for customer , to put the firmware array */
 #include "BHIfw.h"
 
-#include "string.h"
-#include <math.h>
+/********************************************************************************/
+/*                                       MACROS                                 */
+/********************************************************************************/
 
-/** TWI Bus Clock 400kHz */
-#define TWI_CLK     400000
+/* TWI Bus Clock 400kHz */
+#define TWI_CLK              400000
+/* should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1 */
+#define ARRAYSIZE            69
+#define EDBG_FLEXCOM         FLEXCOM7
+#define EDBG_USART           USART7
+#define EDBG_FLEXCOM_IRQ     FLEXCOM7_IRQn
+#define OUT_BUFFER_SIZE      100
+#define DELAY_1US_CIRCLES    0x06
+#define DELAY_1MS_CIRCLES    0x1BA0
+#define MAX_PACKET_LENGTH    18
 
-#define ARRAYSIZE 69	//should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1
-
-#define EDBG_FLEXCOM		FLEXCOM7
-#define EDBG_USART			USART7
-#define EDBG_FLEXCOM_IRQ	FLEXCOM7_IRQn
-
-const sam_usart_opt_t usart_console_settings = {
-	115200,
-	US_MR_CHRL_8_BIT,
-	US_MR_PAR_NO,
-	US_MR_NBSTOP_1_BIT,
-	US_MR_CHMODE_NORMAL
+/*!
+ * @brief This structure holds all setting for the console
+ */
+const sam_usart_opt_t usart_console_settings =
+{
+    115200,
+    US_MR_CHRL_8_BIT,
+    US_MR_PAR_NO,
+    US_MR_NBSTOP_1_BIT,
+    US_MR_CHMODE_NORMAL
 };
 
-
-void trigger_logic_analyzer(void);
-void pre_initialize_i2c(void);
-void twi_initialize(void);
-void edbg_usart_enable(void);
-void mdelay(u32 ul_dly_ticks);
-void udelay(u32 ul_dly_ticks);
-void device_specific_initialization(void);
-
-void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id);
-void timestamp_callback( bhy_data_scalar_u16_t *new_timestamp );
-     
-
+/********************************************************************************/
+/*                                GLOBAL VARIABLES                              */
+/********************************************************************************/
 /* system timestamp */
-u32 g_system_timestamp = 0;
+static uint32_t bhy_system_timestamp = 0;
+static uint8_t  out_buffer[OUT_BUFFER_SIZE] = \
+    " Time=xxx.xxxs Still: X   Walking: X   Running: X   Bicycle: X   Vehicle: X   Tilting: X \r\n";
 
-/* active delay of ~1us */
-void udelay(u32 ul_dly_ticks)
+/********************************************************************************/
+/*                           STATIC FUNCTION DECLARATIONS                       */
+/********************************************************************************/
+static void i2c_pre_initialize(void);
+static void twi_initialize(void);
+static void edbg_usart_enable(void);
+static void mdelay(uint32_t delay_ms);
+static void udelay(uint32_t delay_us);
+static void device_specific_initialization(void);
+static void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id);
+static void timestamp_callback(bhy_data_scalar_u16_t *new_timestamp);
+
+
+/********************************************************************************/
+/*                                    FUNCTIONS                                 */
+/********************************************************************************/
+
+/*!
+ * @brief This function is used to delay a number of microseconds actively.
+ *
+ * @param[in]   delay_us    microseconds to be delayed
+ */
+static void udelay(uint32_t delay_us)
 {
-	volatile uint32_t dummy;
-	
-	for (uint32_t u=0; u<ul_dly_ticks; u++) {
-		for (dummy=0; dummy < 0x06; dummy++) {
-			if (dummy == 0xff) {
-				dummy = 0x100;
-			}		
-		}
-	}
+    volatile uint32_t dummy;
+    uint32_t calu;
+
+    for (uint32_t u = 0; u < delay_us; u++)
+    {
+        for (dummy = 0; dummy < DELAY_1US_CIRCLES; dummy++)
+        {
+            calu++;
+        }
+    }
 }
 
-/* active delay of ~1ms */
-void mdelay(u32 ul_dly_ticks)
-{	
-	volatile uint32_t dummy;
-	
-	for (uint32_t u=0; u<ul_dly_ticks; u++) {
-		for (dummy=0; dummy < 0x1BA0; dummy++) {
-			if (dummy == 0xff) {
-				dummy = 0x100;
-			}		
-		}
-	}
+/*!
+ * @brief This function is used to delay a number of milliseconds actively.
+ *
+ * @param[in]   delay_ms        milliseconds to be delayed
+ */
+static void mdelay(uint32_t delay_ms)
+{
+    volatile uint32_t dummy;
+    uint32_t calu;
+
+    for (uint32_t u = 0; u < delay_ms; u++)
+    {
+        for (dummy = 0; dummy < DELAY_1MS_CIRCLES; dummy++)
+        {
+            calu++;
+        }
+    }
 }
 
-/* this routine issues 9 clock cycles on the SCL line
-   so that all devices release the SDA line if they are 
-   holding it */
-void pre_initialize_i2c(void) {
-	ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
-	for (int i=0; i<9;++i) {
-		ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_LOW);
-		udelay(2);
-		ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_HIGH);
-		udelay(1);
-	}
+/*!
+ * @brief     This function  issues 9 clock cycles on the SCL line
+ *             so that all devices release the SDA line if they are holding it
+ */
+static void i2c_pre_initialize(void)
+{
+    ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
+
+    for (int8_t i = 0; i < 9; ++i)
+    {
+        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_LOW);
+        udelay(2);
+
+        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_HIGH);
+        udelay(1);
+    }
 }
 
-void twi_initialize(void) {
-	twi_options_t opt;
-	opt.master_clk = sysclk_get_cpu_hz();
-	opt.speed = TWI_CLK;
-	/* Enable the peripheral and set TWI mode. */
-	flexcom_enable(BOARD_FLEXCOM_TWI);
-	flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
+/*!
+ * @brief     This function Enable the peripheral and set TWI mode
+ *
+ */
+static void twi_initialize(void)
+{
+    twi_options_t opt;
 
-	
-	if (twi_master_init(TWI4, &opt) != TWI_SUCCESS) 
-		
-		while (1) {
-			/* Capture error */
-		}
+    opt.master_clk = sysclk_get_cpu_hz();
+    opt.speed = TWI_CLK;
+    /* Enable the peripheral and set TWI mode. */
+    flexcom_enable(BOARD_FLEXCOM_TWI);
+    flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
+
+    if (twi_master_init(TWI4, &opt) != TWI_SUCCESS)
+    {
+        while (1)
+        {
+            ;/* Capture error */
+        }
+    }
 }
 
+/*!
+ * @brief     This function is EDBG USART RX IRQ Handler ,just echo characters
+ *
+ */
+static void FLEXCOM7_Handler (void)
+{
+    uint32_t tmp_data;
 
-/* EDBG USART RX IRQ Handler */
-/* just echo characters */
-void FLEXCOM7_Handler ( void ) {
-	uint32_t u32_char;
-	while (usart_is_rx_ready(EDBG_USART)) {
-		usart_getchar(EDBG_USART,&u32_char);
-		usart_putchar(EDBG_USART,u32_char);
-	}
+    while (usart_is_rx_ready(EDBG_USART))
+    {
+        usart_getchar(EDBG_USART, &tmp_data);
+        usart_putchar(EDBG_USART, tmp_data);
+    }
 }
 
+/*!
+ * @brief     This function enable usart
+ *
+ */
+static void edbg_usart_enable(void)
+{
+    flexcom_enable(EDBG_FLEXCOM);
+    flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
 
-void edbg_usart_enable(void) {
-	
-	flexcom_enable(EDBG_FLEXCOM);
-	flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
-	
-	usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
-	usart_enable_tx(EDBG_USART);
-	usart_enable_rx(EDBG_USART);
-	
-	usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
-	NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
+    usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
+    usart_enable_tx(EDBG_USART);
+    usart_enable_rx(EDBG_USART);
 
-}         
-
-char outBuffer[100] = " Time=xxx.xxxs Still: X   Walking: X   Running: X   Bicycle: X   Vehicle: X   Tilting: X \r\n";
-       
-void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id) {
-	float temp;
-	u8 index;
-	/* Since a timestamp is always sent before every new data, and that the callbacks	*/
-	/* are called while the parsing is done, then the system timestamp is always equal	*/
-	/* to the sample timestamp. (in callback mode only)									*/
-	temp = g_system_timestamp/3200000.;
-	
-	for (index = 6; index <=8; index++) {
-		outBuffer[index] = floorf(temp) + '0';
-		temp = (temp-floorf(temp)) * 10;
-	}
-	
-	for (index = 10; index <=12; index++) {
-		outBuffer[index] = floorf(temp) + '0';
-		temp = (temp-floorf(temp)) * 10;
-	}
-	/* if there are no changes then it will read X */
-	outBuffer[22] = 'X';
-	outBuffer[35] = 'X';
-	outBuffer[48] = 'X';
-	outBuffer[61] = 'X';
-	outBuffer[74] = 'X';
-	outBuffer[87] = 'X';
-
-	/* '0' means "end of activity and '1' means start of activity */
-	if (sensor_data->data_scalar_u16.data & 0b0000000000000001)
-		outBuffer[22] = '0';
-	if (sensor_data->data_scalar_u16.data & 0b0000000000000010)
-		outBuffer[35] = '0';
-	if (sensor_data->data_scalar_u16.data & 0b0000000000000100)
-		outBuffer[48] = '0';
-	if (sensor_data->data_scalar_u16.data & 0b0000000000001000)
-		outBuffer[61] = '0';
-	if (sensor_data->data_scalar_u16.data & 0b0000000000010000)
-		outBuffer[74] = '0';
-	if (sensor_data->data_scalar_u16.data & 0b0000000000100000)
-		outBuffer[87] = '0';
-	if (sensor_data->data_scalar_u16.data & 0b0000000100000000)
-		outBuffer[22] = '1';
-	if (sensor_data->data_scalar_u16.data & 0b0000001000000000)
-		outBuffer[35] = '1';
-	if (sensor_data->data_scalar_u16.data & 0b0000010000000000)
-		outBuffer[48] = '1';
-	if (sensor_data->data_scalar_u16.data & 0b0000100000000000)
-		outBuffer[61] = '1';
-	if (sensor_data->data_scalar_u16.data & 0b0001000000000000)
-		outBuffer[74] = '1';
-	if (sensor_data->data_scalar_u16.data & 0b0010000000000000)
-		outBuffer[87] = '1';
-	
-	usart_write_line(EDBG_USART, outBuffer);
-	/* activity recognition is not time critical, so let's wait a little bit */
-	mdelay(200);
+    usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
+    NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
 }
 
-void timestamp_callback( bhy_data_scalar_u16_t *new_timestamp ) {
-	/* updates the system timestamp	*/
-	bhy_update_system_timestamp( new_timestamp, &g_system_timestamp);
+/*!
+ * @brief This function is  callback function for acquring sensor datas
+ *
+ * @param[in]   sensor_data
+ * @param[in]   sensor_id
+ */
+static void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id)
+{
+    float temp;
+    uint8_t index;
+    /* Since a timestamp is always sent before every new data, and that the callbacks   */
+    /* are called while the parsing is done, then the system timestamp is always equal  */
+    /* to the sample timestamp. (in callback mode only)   */
+    temp = bhy_system_timestamp / 3200000.0f;
 
+    for (index = 6; index <= 8; index++)
+    {
+        out_buffer[index] = floorf(temp) + '0';
+        temp = (temp - floorf(temp)) * 10;
+    }
+
+    for (index = 10; index <= 12; index++)
+    {
+        out_buffer[index] = floorf(temp) + '0';
+        temp = (temp - floorf(temp)) * 10;
+    }
+
+    /* if there are no changes then it will read X */
+    out_buffer[22] = 'X';
+    out_buffer[35] = 'X';
+    out_buffer[48] = 'X';
+    out_buffer[61] = 'X';
+    out_buffer[74] = 'X';
+    out_buffer[87] = 'X';
+
+    /* '0' means "end of activity and '1' means start of activity */
+    if (sensor_data->data_scalar_u16.data & 0b0000000000000001)
+    {
+        out_buffer[22] = '0';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000000000000010)
+    {
+        out_buffer[35] = '0';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000000000000100)
+    {
+        out_buffer[48] = '0';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000000000001000)
+    {
+        out_buffer[61] = '0';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000000000010000)
+    {
+        out_buffer[74] = '0';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000000000100000)
+    {
+        out_buffer[87] = '0';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000000100000000)
+    {
+        out_buffer[22] = '1';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000001000000000)
+    {
+        out_buffer[35] = '1';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000010000000000)
+    {
+        out_buffer[48] = '1';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0000100000000000)
+    {
+        out_buffer[61] = '1';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0001000000000000)
+    {
+        out_buffer[74] = '1';
+    }
+
+    if (sensor_data->data_scalar_u16.data & 0b0010000000000000)
+    {
+        out_buffer[87] = '1';
+    }
+
+    usart_write_line(EDBG_USART, out_buffer);
+    /* activity recognition is not time critical, so let's wait a little bit */
+    mdelay(200);
 }
 
-/* This function regroups all the initialization specific to SAM G55 */
-void device_specific_initialization(void) {
-	/* Initialize the SAM system */
-	sysclk_init();
-
-	/* execute this function before board_init */
-	pre_initialize_i2c();
-	
-	/* Initialize the board */
-	board_init();
-
-	/* configure the i2c */
-	twi_initialize();
-	
-	/* configures the serial port */
-	edbg_usart_enable();
-
-	/* configures the interrupt pin GPIO */
-	ioport_set_pin_dir(EXT1_PIN_GPIO_1, IOPORT_DIR_INPUT);
-	ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
+/*!
+ * @brief This function is time stamp callback function that process data in fifo.
+ *
+ * @param[in]   new_timestamp
+ */
+static void timestamp_callback(bhy_data_scalar_u16_t *new_timestamp)
+{
+    /* updates the system timestamp */
+    bhy_update_system_timestamp(new_timestamp, &bhy_system_timestamp);
 }
 
+/*!
+ * @brief     This function regroups all the initialization specific to SAM G55
+ *
+ */
+static void device_specific_initialization(void)
+{
+    /* Initialize the SAM system */
+    sysclk_init();
+
+    /* execute this function before board_init */
+    i2c_pre_initialize();
+
+    /* Initialize the board */
+    board_init();
+
+    /* configure the i2c */
+    twi_initialize();
+
+    /* configures the serial port */
+    edbg_usart_enable();
+
+    /* configures the interrupt pin GPIO */
+    ioport_set_pin_dir(EXT1_PIN_GPIO_1, IOPORT_DIR_INPUT);
+    ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
+}
+
+/*!
+ * @brief     main body function
+ *
+ * @retval   result for execution
+ */
 int main(void)
 {
-	u8 array[ARRAYSIZE], *fifoptr, bytes_left_in_fifo=0;
-	u16 bytes_remaining, bytes_read;
-	bhy_data_generic_t	fifo_packet;
-	bhy_data_type_t		packet_type;
-	BHY_RETURN_FUNCTION_TYPE result;
-	
-	/* Initialize the SAM G55 system */
-	device_specific_initialization();
+    uint8_t                    array[ARRAYSIZE];
+    uint8_t                    *fifoptr           = NULL;
+    uint8_t                    bytes_left_in_fifo = 0;
+    uint16_t                   bytes_remaining    = 0;
+    uint16_t                   bytes_read         = 0;
+    bhy_data_generic_t         fifo_packet;
+    bhy_data_type_t            packet_type;
+    BHY_RETURN_FUNCTION_TYPE   result;
 
-	/* initializes the BHI160 and loads the RAM patch */
-	bhy_driver_init(_bhi_fw/*, _bhi_fw_len*/);
-		
-	//wait for the interrupt pin to go down then up again
-	while (ioport_get_pin_level(EXT1_PIN_GPIO_1));
-	while (!ioport_get_pin_level(EXT1_PIN_GPIO_1));
-	
-	/* enables the activity recognition and assigns the callback */
-	bhy_enable_virtual_sensor(VS_TYPE_ACTIVITY_RECOGNITION, VS_NON_WAKEUP, 1, 0, VS_FLUSH_NONE, 0, 0);
-	
-	bhy_install_sensor_callback(VS_TYPE_ACTIVITY_RECOGNITION, VS_NON_WAKEUP, sensors_callback);
+    /* Initialize the SAM G55 system */
+    device_specific_initialization();
 
-	bhy_install_timestamp_callback(VS_NON_WAKEUP, timestamp_callback);
-	
-	usart_write_line(EDBG_USART, "System is now monitoring activity, press SW0 \r\n");
-	
-	//wait for the push-button to be pressed
-	while (ioport_get_pin_level(BUTTON_0_PIN) == BUTTON_0_INACTIVE);
-	
-	usart_write_line(EDBG_USART, "Here is what has been recorded \r\n");
-	
-	/* continuously read and parse the fifo after the push of the button*/
-	while (true) {	
-		
-		bhy_read_fifo(array+bytes_left_in_fifo, ARRAYSIZE-bytes_left_in_fifo, &bytes_read, &bytes_remaining);
-		
-		bytes_read += bytes_left_in_fifo;
-		
-		fifoptr = array;	
-		packet_type = BHY_DATA_TYPE_PADDING;
-		
-		if (bytes_read) {
-			do {
-				/* this function will call callbacks that are registered */
-				result = bhy_parse_next_fifo_packet( &fifoptr, &bytes_read, &fifo_packet, &packet_type );
-		
-			/* the logic here is that if doing a partial parsing of the fifo, then we should not parse	*/
-			/* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete	*/
-			/* packet																					*/
-			} while ( (result == BHY_SUCCESS) && (bytes_read > (bytes_remaining ? 18 : 0)) );
-			bytes_left_in_fifo = 0;
-			
-			if (bytes_remaining) {
-				/* shifts the remaining bytes to the beginning of the buffer */
-				while (bytes_left_in_fifo < bytes_read) 
-					array[bytes_left_in_fifo++] = *(fifoptr++);
-			}
-		} else {
-			/* activity recognition is not time critical, so let's wait a little bit */
-			mdelay(100);
-		}
-	}
+    /* initializes the BHI160 and loads the RAM patch */
+    bhy_driver_init(_bhi_fw/*, _bhi_fw_len*/);
+
+    /* wait for the interrupt pin to go down then up again */
+    while (ioport_get_pin_level(EXT1_PIN_GPIO_1))
+    {
+    }
+
+    while (!ioport_get_pin_level(EXT1_PIN_GPIO_1))
+    {
+    }
+
+    /* enables the activity recognition and assigns the callback */
+    bhy_enable_virtual_sensor(VS_TYPE_ACTIVITY_RECOGNITION, VS_NON_WAKEUP, 1, 0, VS_FLUSH_NONE, 0, 0);
+    bhy_install_sensor_callback(VS_TYPE_ACTIVITY_RECOGNITION, VS_NON_WAKEUP, sensors_callback);
+    bhy_install_timestamp_callback(VS_NON_WAKEUP, timestamp_callback);
+
+    usart_write_line(EDBG_USART, "System is now monitoring activity, press SW0 \r\n");
+
+    /* wait for the push-button to be pressed */
+    while (ioport_get_pin_level(BUTTON_0_PIN) == BUTTON_0_INACTIVE)
+    {
+    }
+
+    usart_write_line(EDBG_USART, "Here is what has been recorded \r\n");
+
+    /* continuously read and parse the fifo after the push of the button*/
+    while (true)
+    {
+        bhy_read_fifo(array+bytes_left_in_fifo, ARRAYSIZE - bytes_left_in_fifo, &bytes_read, &bytes_remaining);
+        bytes_read         += bytes_left_in_fifo;
+        fifoptr             = array;
+        packet_type        = BHY_DATA_TYPE_PADDING;
+
+        if (bytes_read)
+        {
+            do
+            {
+                /* this function will call callbacks that are registered */
+                result = bhy_parse_next_fifo_packet(&fifoptr, &bytes_read, &fifo_packet, &packet_type);
+                /* the logic here is that if doing a partial parsing of the fifo, then we should not parse        */
+                /* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete   */
+                /* packet                                                                                                            */
+            } while ((result == BHY_SUCCESS) && (bytes_read > (bytes_remaining ? MAX_PACKET_LENGTH : 0)));
+
+            bytes_left_in_fifo = 0;
+
+            if (bytes_remaining)
+            {
+                /* shifts the remaining bytes to the beginning of the buffer */
+                while (bytes_left_in_fifo < bytes_read)
+                {
+                    array[bytes_left_in_fifo++] = *(fifoptr++);
+                }
+            }
+        }
+        else
+        {
+            /* activity recognition is not time critical, so let's wait a little bit */
+            mdelay(100);
+        }
+    }
+
+    return BHY_SUCCESS;
 }
+/** @}*/
