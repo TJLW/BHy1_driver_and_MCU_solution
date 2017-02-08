@@ -562,7 +562,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
             (*fifo_data_type) = BHY_DATA_TYPE_SCALAR_S16;
             fifo_data_output->data_scalar_s16.sensor_id = (**fifo_buffer);
             fifo_data_output->data_scalar_s16.data =
-            (int16_t)(((uint16_t)*((*fifo_buffer) + 1)) | (uint16_t*((*fifo_buffer) + 2) << 8));
+            (int16_t)(((uint16_t)*((*fifo_buffer) + 1)) | ((uint16_t)*((*fifo_buffer) + 2) << 8));
             break;
 
         case VS_ID_BAROMETER:
