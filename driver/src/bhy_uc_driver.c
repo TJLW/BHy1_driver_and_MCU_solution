@@ -78,12 +78,6 @@
 /********************************************************************************/
 /*                                       MACROS                                 */
 /********************************************************************************/
-#define BSX_PARAM_PAGE                  2
-#define SIC_MATRIX_0_1                  1       /* X1, X2 */
-#define SIC_MATRIX_2_3                  2       /* X3, Y1 */
-#define SIC_MATRIX_4_5                  3       /* Y2, Y2 */
-#define SIC_MATRIX_6_7                  4       /* Z1, Z2 */
-#define SIC_MATRIX_8                    5       /* Z3,    */
 
 /* firmware download retry time */
 #define BHY_INIT_RETRY_COUNT            3
@@ -100,9 +94,15 @@
 #define BHY_DATA_SIZE_UNCALIB_VECTOR    14
 #define BHY_DATA_SIZE_META_EVENT        4
 #define BHY_DATA_SIZE_BSX               17
-#if BHY_DEBUG
-    #define BHY_DATA_SIZE_DEBUG         14
-#endif
+#define BHY_DATA_SIZE_DEBUG             14
+
+/* set default custom sensor packet size to 1, same as padding */
+#define BHY_DATA_SIZE_CUS1              1
+#define BHY_DATA_SIZE_CUS2              1
+#define BHY_DATA_SIZE_CUS3              1
+#define BHY_DATA_SIZE_CUS4              1
+#define BHY_DATA_SIZE_CUS5              1
+
 #define MAX_PAGE_NUM                    15
 #define MAX_SENSOR_ID                   0x20
 #define MAX_SENSOR_ID_NONWAKEUP         0x3F
@@ -111,7 +111,6 @@
 #define TIMESTAMP_CALLBACK_LIST_NUM     2
 #define METAEVENT_CALLBACK_LIST_NUM     32
 #define SENSOR_PARAMETER_WRITE          0xC0
-#define USB_MAX_BUFFER_SIZE             51
 #define MAX_METAEVENT_ID                17
 
 /********************************************************************************/
@@ -120,7 +119,7 @@
 
 /* these FIFO sizes are dependent on the enumeration above */
 /* do not change the order                                 */
-const uint8_t _fifoSizes[] = {
+uint8_t _fifoSizes[] = {
     BHY_DATA_SIZE_PADDING,
     BHY_DATA_SIZE_QUATERNION,
     BHY_DATA_SIZE_VECTOR,
@@ -132,9 +131,12 @@ const uint8_t _fifoSizes[] = {
     BHY_DATA_SIZE_UNCALIB_VECTOR,
     BHY_DATA_SIZE_META_EVENT,
     BHY_DATA_SIZE_BSX,
-#if BHY_DEBUG
     BHY_DATA_SIZE_DEBUG,
-#endif
+    BHY_DATA_SIZE_CUS1,
+    BHY_DATA_SIZE_CUS2,
+    BHY_DATA_SIZE_CUS3,
+    BHY_DATA_SIZE_CUS4,
+    BHY_DATA_SIZE_CUS5,
 };
 
 #if BHY_CALLBACK_MODE
@@ -152,6 +154,8 @@ static void (*sensor_callback_list[SENSOR_CALLBACK_LIST_NUM])(bhy_data_generic_t
 static void (*timestamp_callback_list[TIMESTAMP_CALLBACK_LIST_NUM])(bhy_data_scalar_u16_t *) = {0};
 static void (*meta_event_callback_list[METAEVENT_CALLBACK_LIST_NUM])(bhy_data_meta_event_t *, bhy_meta_event_type_t) = {0};
 #endif
+
+extern void trace_log(const char *fmt, ...);
 
 /********************************************************************************/
 /*                                    FUNCTIONS                                 */
@@ -390,11 +394,6 @@ BHY_RETURN_FUNCTION_TYPE bhy_read_fifo(uint8_t *buffer, uint16_t buffer_size, ui
     /* if there are bytes in the fifo to read */
     if (current_transaction_size)
     {
-#if BST_APPLICATION_BOARD
-        /* limit the size to 51 in order to work with the USB driver         */
-        buffer_size = (buffer_size > USB_MAX_BUFFER_SIZE) ? USB_MAX_BUFFER_SIZE : buffer_size;
-#endif
-
         /* calculates the number of bytes to read. either the number of     */
         /* bytes left, or the buffer size, or just enough so the last page  */
         /* does not get turned                                              */
@@ -449,6 +448,8 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
                                                         bhy_data_generic_t * fifo_data_output,
                                                         bhy_data_type_t * fifo_data_type)
 {
+    uint16_t i = 0;
+
     if ((*fifo_buffer_length) == 0)
     {
         /* there are no more bytes in the fifo buffer to read */
@@ -562,7 +563,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
             (*fifo_data_type) = BHY_DATA_TYPE_SCALAR_S16;
             fifo_data_output->data_scalar_s16.sensor_id = (**fifo_buffer);
             fifo_data_output->data_scalar_s16.data =
-            (int16_t)(((uint16_t)*((*fifo_buffer) + 1)) | ((uint16_t)*((*fifo_buffer) + 2) << 8));
+            (int16_t)(((uint16_t)*(*fifo_buffer + 1)) | ((uint16_t)*(*fifo_buffer + 2) << 8));
             break;
 
         case VS_ID_BAROMETER:
@@ -634,7 +635,6 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
             fifo_data_output->data_meta_event.sensor_type      = *((*fifo_buffer) + 2);
             fifo_data_output->data_meta_event.event_specific   = *((*fifo_buffer) + 3);
             break;
-#if BHY_DEBUG
         case VS_ID_DEBUG:
             if ((*fifo_buffer_length) < _fifoSizes[BHY_DATA_TYPE_DEBUG])
             {
@@ -657,7 +657,6 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
             fifo_data_output->data_debug.data[11]    = *((*fifo_buffer) + 12);
             fifo_data_output->data_debug.data[12]    = *((*fifo_buffer) + 13);
             break;
-#endif
         case VS_ID_BSX_C:
         case VS_ID_BSX_B:
         case VS_ID_BSX_A:
@@ -682,12 +681,108 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
               ((uint32_t)*((*fifo_buffer) + 15) << 16) | ((uint32_t)*((*fifo_buffer) + 16) << 24));
             break;
 
+       case VS_ID_CUS1:
+       case VS_ID_CUS2:
+       case VS_ID_CUS3:
+       case VS_ID_CUS4:
+       case VS_ID_CUS5:
+            (*fifo_data_type) = BHY_DATA_TYPE_CUS1+ **fifo_buffer - VS_ID_CUS1;
+
+            if ((*fifo_buffer_length) < _fifoSizes[*fifo_data_type])
+            {
+                return BHY_OUT_OF_RANGE;
+            }
+
+            fifo_data_output->data_pdr.sensor_id   = (**fifo_buffer);
+
+            for(i = 0; i < _fifoSizes[*fifo_data_type] - 1; i++)
+                fifo_data_output->data_custom.data[i] = *((*fifo_buffer) + i);
+            break;
+
+       case VS_ID_CUS1_WAKEUP:
+       case VS_ID_CUS2_WAKEUP:
+       case VS_ID_CUS3_WAKEUP:
+       case VS_ID_CUS4_WAKEUP:
+       case VS_ID_CUS5_WAKEUP:
+            (*fifo_data_type) = BHY_DATA_TYPE_CUS1+ **fifo_buffer - VS_ID_CUS1_WAKEUP;
+
+            if ((*fifo_buffer_length) < _fifoSizes[*fifo_data_type])
+            {
+                return BHY_OUT_OF_RANGE;
+            }
+
+            fifo_data_output->data_pdr.sensor_id   = (**fifo_buffer);
+
+            for(i = 0; i < _fifoSizes[*fifo_data_type]-1; i++)
+                fifo_data_output->data_custom.data[i] = *((*fifo_buffer) + i);
+            break;
+
         /* the VS sensor ID is unknown. Either the sync has been lost or the */
         /* ram patch implements a new sensor ID that this driver doesn't yet */
         /* support                               */
         default:
             return BHY_OUT_OF_RANGE;
     }
+
+
+#if defined(BHY_DEBUG)
+    {
+        uint8_t *p_name = "UnDefined";
+        const char *sensors[] = {"PAdding", "Acc",      "Mag",      "Orient",   "Gyro",        "Light",      "Bar",     "Temp"
+                                 ,"Prox",   "Gravity",  "Line Acc", "R Vector", "Humidity",    "A temp",     "un Mag",  "GR Vector"
+                                 ,"Un Gyro","SigMotion","StepDet",  "StepCnt",  "GeoR Vector", "HeartRate",  "TiltDect","WGesture"
+                                 ,"Glance", "PickUp",   "Cus1",     "Cus2",     "Cus3",        "Cus4",       "Cus5",    "Activity"
+                                };
+
+        if((uint8_t)**fifo_buffer <= VS_ID_ACTIVITY)
+        {
+            p_name = sensors[(uint8_t)**fifo_buffer];
+        }
+        else if((uint8_t)**fifo_buffer <= VS_ID_ACTIVITY_WAKEUP)
+        {
+            p_name = sensors[(uint8_t)**fifo_buffer - 32];
+        }
+        else
+        {
+            switch(**fifo_buffer)
+            {
+                case VS_ID_DEBUG:
+                    p_name = "DString";
+                    break;
+                case VS_ID_TIMESTAMP_LSW_WAKEUP:
+                case VS_ID_TIMESTAMP_LSW:
+                    p_name = "LSW";
+                    break;
+                case VS_ID_TIMESTAMP_MSW_WAKEUP:
+                case VS_ID_TIMESTAMP_MSW:
+                    p_name = "MSW";
+                    break;
+                case VS_ID_META_EVENT_WAKEUP:
+                case VS_ID_META_EVENT:
+                    p_name = "Meta Evt";
+                    break;
+                case VS_ID_BSX_A:
+                    p_name = "BSX A";
+                    break;
+                case VS_ID_BSX_B:
+                    p_name = "BSX B";
+                    break;
+                case VS_ID_BSX_C:
+                    p_name = "BSX C";
+                    break;
+                default:
+                    p_name = "UnKnown";
+                    break;
+            }
+        }
+
+        trace_log("[Sample](%12s):(%02d)", p_name, _fifoSizes[*fifo_data_type]);
+        for(i = 0; i < _fifoSizes[*fifo_data_type]; i++)
+            trace_log(" %02x", *((*fifo_buffer) + i));
+        trace_log("\n");
+    }
+#endif
+
 
 #if BHY_CALLBACK_MODE
     if((**fifo_buffer) < 0x40)
@@ -721,6 +816,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
     }
 #endif
 
+
     (*fifo_buffer)         += _fifoSizes[*fifo_data_type];
     (*fifo_buffer_length)  -= _fifoSizes[*fifo_data_type];
 
@@ -731,6 +827,8 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
  * @brief                  This function will detect the timestamp packet accordingly and update
  *                            either the MSW or the LSW of the system timestamp
  *
+ *                         system_timestamp is only valid after LSW comes.
+ *
  * @param[in]              timestamp_packet               timestamp of packets
  * @param[in/out]          system_timestamp               timestamp of system
  *
@@ -739,16 +837,26 @@ BHY_RETURN_FUNCTION_TYPE bhy_parse_next_fifo_packet (uint8_t **fifo_buffer, uint
 BHY_RETURN_FUNCTION_TYPE bhy_update_system_timestamp(bhy_data_scalar_u16_t *timestamp_packet,
                                                         uint32_t *system_timestamp)
 {
+    static uint32_t timestamp_wakeup = 0;
+    static uint32_t timestamp_nonwakeup = 0;
+    
     switch (timestamp_packet->sensor_id)
     {
         case VS_ID_TIMESTAMP_LSW:
+            timestamp_nonwakeup = (timestamp_nonwakeup & 0xFFFF0000) | (uint32_t)timestamp_packet->data;
+            *system_timestamp = timestamp_nonwakeup;
+            break;
         case VS_ID_TIMESTAMP_LSW_WAKEUP:
-            (*system_timestamp) = ((*system_timestamp) & 0xFFFF0000) | (uint32_t)timestamp_packet->data;
-            return BHY_SUCCESS;
+            timestamp_wakeup = (timestamp_wakeup & 0xFFFF0000) | (uint32_t)timestamp_packet->data;
+            *system_timestamp = timestamp_wakeup;
+            break;;
+
         case VS_ID_TIMESTAMP_MSW:
+            timestamp_nonwakeup = (timestamp_nonwakeup & 0x0000FFFF) | ((uint32_t)timestamp_packet->data << 16);
+            break;
         case VS_ID_TIMESTAMP_MSW_WAKEUP:
-            (*system_timestamp) = ((*system_timestamp) & 0x0000FFFF) | ((uint32_t)timestamp_packet->data << 16);
-            return BHY_SUCCESS;
+            timestamp_wakeup = (timestamp_wakeup & 0x0000FFFF) | ((uint32_t)timestamp_packet->data << 16);
+            break;
         default:
             return BHY_OUT_OF_RANGE;
     }
@@ -782,7 +890,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_write_parameter_page(uint8_t page, uint8_t paramete
         return BHY_SUCCESS;
     }
 
-    com_rslt = bhy_i2c_write(BHY_I2C_SLAVE_ADDRESS, BHY_I2C_REG_PARAMETER_WRITE_BUFFER_ZERO, data, length);
+    com_rslt = bhy_write_reg(BHY_I2C_REG_PARAMETER_WRITE_BUFFER_ZERO, data, length);
 
     /* select the page*/
     if (page > MAX_PAGE_NUM)
@@ -795,7 +903,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_write_parameter_page(uint8_t page, uint8_t paramete
     }
 
     page = ((length & 0x07) << 4) | page;
-    com_rslt += bhy_i2c_write(BHY_I2C_SLAVE_ADDRESS, BHY_I2C_REG_PARAMETER_PAGE_SELECT__REG, &page, 1);
+    com_rslt += bhy_write_reg(BHY_I2C_REG_PARAMETER_PAGE_SELECT__REG, &page, 1);
 
     /* select the parameter*/
     parameter |= 0x80;
@@ -863,7 +971,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_read_parameter_page(uint8_t page, uint8_t parameter
     }
 
     page = ((length & 0x0F) << 4) | page;
-    com_rslt = bhy_i2c_write(BHY_I2C_SLAVE_ADDRESS, BHY_I2C_REG_PARAMETER_PAGE_SELECT__REG, &page, 1);
+    com_rslt = bhy_write_reg(BHY_I2C_REG_PARAMETER_PAGE_SELECT__REG, &page, 1);
 
     /* select the parameter*/
     parameter &= 0x7F;
@@ -891,7 +999,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_read_parameter_page(uint8_t page, uint8_t parameter
         }
     }
     /* read values to the load address*/
-    com_rslt += bhy_i2c_read(BHY_I2C_SLAVE_ADDRESS, BHY_I2C_REG_PARAMETER_READ_BUFFER_ZERO, data, length);
+    com_rslt += bhy_read_reg(BHY_I2C_REG_PARAMETER_READ_BUFFER_ZERO, data, length);
 
     return com_rslt;
 }
@@ -1172,7 +1280,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_gp_register_write(bhy_gp_register_type_t gp_reg, ui
     }
     else
     {
-        ret += bhy_i2c_write(BHY_I2C_SLAVE_ADDRESS, gp_reg, &data, 1);
+        ret += bhy_write_reg(gp_reg, &data, 1);
     }
 
     return ret;
@@ -1190,7 +1298,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_gp_register_read(bhy_gp_register_type_t gp_reg, uin
 {
     BHY_RETURN_FUNCTION_TYPE ret = BHY_SUCCESS;
 
-    ret += bhy_i2c_read(BHY_I2C_SLAVE_ADDRESS, gp_reg, data, 1);
+    ret += bhy_read_reg(gp_reg, data, 1);
 
     return ret;
 }
@@ -1206,29 +1314,71 @@ BHY_RETURN_FUNCTION_TYPE bhy_get_sic_matrix(float * sic_matrix)
 {
     BHY_RETURN_FUNCTION_TYPE return_val;
 
-    return_val = bhy_read_parameter_page(BSX_PARAM_PAGE, SIC_MATRIX_0_1, (uint8_t *)(&sic_matrix[0]), 8);
+    return_val = bhy_read_parameter_page(BHY_PAGE_2, PAGE2_SIC_MATRIX_0_1, (uint8_t *)(&sic_matrix[0]), 8);
 
     if (BHY_SUCCESS == return_val)
     {
-        return_val = bhy_read_parameter_page(BSX_PARAM_PAGE, SIC_MATRIX_2_3, (uint8_t *)(&sic_matrix[2]), 8);
+        return_val = bhy_read_parameter_page(BHY_PAGE_2, PAGE2_SIC_MATRIX_2_3, (uint8_t *)(&sic_matrix[2]), 8);
     }
 
     if (BHY_SUCCESS == return_val)
     {
-        return_val = bhy_read_parameter_page(BSX_PARAM_PAGE, SIC_MATRIX_4_5, (uint8_t *)(&sic_matrix[4]), 8);
+        return_val = bhy_read_parameter_page(BHY_PAGE_2, PAGE2_SIC_MATRIX_4_5, (uint8_t *)(&sic_matrix[4]), 8);
     }
 
     if (BHY_SUCCESS == return_val)
     {
-        return_val = bhy_read_parameter_page(BSX_PARAM_PAGE, SIC_MATRIX_6_7, (uint8_t *)(&sic_matrix[6]), 8);
+        return_val = bhy_read_parameter_page(BHY_PAGE_2, PAGE2_SIC_MATRIX_6_7, (uint8_t *)(&sic_matrix[6]), 8);
     }
 
     if (BHY_SUCCESS == return_val)
     {
-        return_val = bhy_read_parameter_page(BSX_PARAM_PAGE, SIC_MATRIX_8, (uint8_t *)(&sic_matrix[8]), 4);
+        return_val = bhy_read_parameter_page(BHY_PAGE_2, PAGE2_SIC_MATRIX_8, (uint8_t *)(&sic_matrix[8]), 4);
     }
 
     return return_val;
+}
+
+/*!
+ * @brief              This function get all the custom sensor data length according reading information from hub.
+ *
+ * @param[in]          none
+ *
+ * @retval             result of execution
+ */
+BHY_RETURN_FUNCTION_TYPE bhy_sync_cus_evt_size(void)
+{
+    struct sensor_information_wakeup_t sensor_info_wakeup;
+    uint8_t i = 0;
+
+    for(i = 0; i < 5; i++)
+    {
+        bhy_get_wakeup_sensor_information(VS_ID_CUS1 + i, &sensor_info_wakeup);
+
+        if(sensor_info_wakeup.wakeup_sensor_type == (VS_TYPE_CUS1 + i))
+        {
+            _fifoSizes[BHY_DATA_TYPE_CUS1+i] = sensor_info_wakeup.wakeup_event_size;
+        }
+    }
+
+    return BHY_SUCCESS;
+}
+
+/*!
+ * @brief              This function get the specific custom sensor data length according reading information from hub.
+ *
+ * @param[in]          sensor_id            pointer to sensor_id
+ *
+ * @retval             result of data length
+ */
+int8_t bhy_get_cus_evt_size(bhy_virtual_sensor_t sensor_id)
+{
+    if(sensor_id >= VS_TYPE_CUS1 && sensor_id <= VS_TYPE_CUS5)
+    {
+        return _fifoSizes[BHY_DATA_TYPE_CUS1 + sensor_id - VS_TYPE_CUS1];
+    }
+
+    return BHY_ERROR;
 }
 
 /*!
@@ -1242,32 +1392,31 @@ BHY_RETURN_FUNCTION_TYPE bhy_set_sic_matrix(float *sic_matrix)
 {
     BHY_RETURN_FUNCTION_TYPE return_val;
 
-    return_val = bhy_write_parameter_page(BSX_PARAM_PAGE, SIC_MATRIX_0_1, (uint8_t *)(&sic_matrix[0]), 8);
+    return_val = bhy_write_parameter_page(BHY_PAGE_2, PAGE2_SIC_MATRIX_0_1, (uint8_t *)(&sic_matrix[0]), 8);
 
     if (BHY_SUCCESS == return_val)
     {
-        return_val = bhy_write_parameter_page(BSX_PARAM_PAGE,SIC_MATRIX_2_3, (uint8_t *)(&sic_matrix[2]), 8);
+        return_val = bhy_write_parameter_page(BHY_PAGE_2,PAGE2_SIC_MATRIX_2_3, (uint8_t *)(&sic_matrix[2]), 8);
     }
 
     if (BHY_SUCCESS == return_val)
     {
-        return_val = bhy_write_parameter_page(BSX_PARAM_PAGE,SIC_MATRIX_4_5, (uint8_t *)(&sic_matrix[4]), 8);
+        return_val = bhy_write_parameter_page(BHY_PAGE_2,PAGE2_SIC_MATRIX_4_5, (uint8_t *)(&sic_matrix[4]), 8);
     }
 
     if (BHY_SUCCESS == return_val)
     {
-        return_val = bhy_write_parameter_page(BSX_PARAM_PAGE,SIC_MATRIX_6_7, (uint8_t *)(&sic_matrix[6]), 8);
+        return_val = bhy_write_parameter_page(BHY_PAGE_2,PAGE2_SIC_MATRIX_6_7, (uint8_t *)(&sic_matrix[6]), 8);
     }
 
     if (BHY_SUCCESS == return_val)
     {
-        return_val = bhy_write_parameter_page(BSX_PARAM_PAGE,SIC_MATRIX_8, (uint8_t *)(&sic_matrix[8]), 4);
+        return_val = bhy_write_parameter_page(BHY_PAGE_2,PAGE2_SIC_MATRIX_8, (uint8_t *)(&sic_matrix[8]), 4);
     }
 
     return return_val;
 }
 
-#if BHY_DEBUG
 /*!
  * @brief              This function outputs the debug data to function pointer
  *                          You need to provide a function that takes as argument a zero-terminated string and prints it
@@ -1311,8 +1460,6 @@ void bhy_print_debug_packet(bhy_data_debug_t *packet, void (*debug_print_ptr)(co
 
     debug_print_ptr(tempstr);
 }
-
-#endif
 
 #if BHY_CALLBACK_MODE
 /*!

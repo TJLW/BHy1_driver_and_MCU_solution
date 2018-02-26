@@ -1527,7 +1527,9 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
                     }
                 }
 
-                com_rslt += bhy_write_reg(BHY_I2C_REG_UPLOAD_DATA_ADDR,data_byte,packet_length * BHY_RAM_WRITE_LENGTH);
+				if(packet_length != 0)
+                    com_rslt += bhy_write_reg(BHY_I2C_REG_UPLOAD_DATA_ADDR,data_byte,packet_length * BHY_RAM_WRITE_LENGTH);
+
                 write_data = write_data + (packet_length * BHY_RAM_WRITE_LENGTH);
             }
         }

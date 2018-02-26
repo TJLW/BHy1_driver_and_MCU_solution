@@ -132,6 +132,11 @@ typedef enum {
     VS_TYPE_WAKEUP                      = VS_ID_WAKE_GESTURE,
     VS_TYPE_GLANCE                      = VS_ID_GLANCE_GESTURE,
     VS_TYPE_PICKUP                      = VS_ID_PICKUP_GESTURE,
+    VS_TYPE_CUS1                        = VS_ID_CUS1,
+    VS_TYPE_CUS2                        = VS_ID_CUS2,
+    VS_TYPE_CUS3                        = VS_ID_CUS3,
+    VS_TYPE_CUS4                        = VS_ID_CUS4,
+    VS_TYPE_CUS5                        = VS_ID_CUS5,
     VS_TYPE_ACTIVITY_RECOGNITION        = VS_ID_ACTIVITY
 } bhy_virtual_sensor_t;
 
@@ -193,9 +198,12 @@ typedef enum {
     BHY_DATA_TYPE_UNCALIB_VECTOR        = 8,
     BHY_DATA_TYPE_META_EVENT            = 9,
     BHY_DATA_TYPE_BSX                   = 10,
-    #if BHY_DEBUG
     BHY_DATA_TYPE_DEBUG                 = 11,
-    #endif
+    BHY_DATA_TYPE_CUS1					= 12,
+    BHY_DATA_TYPE_CUS2					= 13,
+    BHY_DATA_TYPE_CUS3					= 14,
+    BHY_DATA_TYPE_CUS4					= 15,
+    BHY_DATA_TYPE_CUS5					= 16,
 } bhy_data_type_t;
 
 typedef enum {
@@ -287,12 +295,26 @@ typedef struct {
     uint32_t timestamp;
 } bhy_data_bsx_t;
 
-#if BHY_DEBUG
 typedef struct {
     uint8_t sensor_id;
     uint8_t data[13];
 } bhy_data_debug_t;
-#endif
+
+typedef struct {
+	uint8_t  sensor_id;
+	int16_t deltaX;
+	int16_t deltaY;
+	int16_t deltaZ;
+	int16_t confidencelevel;
+	uint16_t direction;
+	uint16_t stepCount;
+} bhy_data_pdr_t;
+
+typedef struct {
+	uint8_t  sensor_id;
+	uint8_t  data[16];
+} bhy_data_custom_t;
+
 
 /* definition of a generic structure that can contain any data type it      */
 /* occupies in RAM the size of the largest data structure, which is 18 bytes*/
@@ -309,9 +331,9 @@ typedef union {
     bhy_data_uncalib_vector_t   data_uncalib_vector;
     bhy_data_meta_event_t       data_meta_event;
     bhy_data_bsx_t              data_bsx;
-    #if BHY_DEBUG
     bhy_data_debug_t            data_debug;
-    #endif
+	bhy_data_custom_t           data_custom;
+	bhy_data_pdr_t              data_pdr;
 } bhy_data_generic_t;
 
 #endif /* BHY_UC_DRIVER_TYPES_H_ */

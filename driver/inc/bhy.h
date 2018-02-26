@@ -1077,6 +1077,8 @@ u8 vector;/**< contains the accuracy data*/
 /**************************************************************/
 #define BHY_PAGE_1  (0x01)
 /**< page 1 system page*/
+#define BHY_PAGE_2  (0x02)
+/**< page 2 system page*/
 #define BHY_PAGE_3  (0x03)
 /**< page 3 sensor page*/
 #define BHY_PAGE_15 (0x0F)
@@ -1084,7 +1086,6 @@ u8 vector;/**< contains the accuracy data*/
 /**************************************************************/
 /**\name    READ PARAMETER REQUEST      */
 /**************************************************************/
-#define BHY_PARAMETER_REQUEST_READ_PARAMETER_30     (0x1E)
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_0      (0x00)
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_1      (0x01)
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_2      (0x02)
@@ -1111,6 +1112,7 @@ u8 vector;/**< contains the accuracy data*/
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_23     (0x17)
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_24     (0x18)
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_25     (0x19)
+#define BHY_PARAMETER_REQUEST_READ_PARAMETER_30     (0x1E)
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_31     (0x1F)
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_33     (0x21)
 #define BHY_PARAMETER_REQUEST_READ_PARAMETER_34     (0x22)
@@ -1257,6 +1259,27 @@ u8 vector;/**< contains the accuracy data*/
 #define BHY_PARAMETER_REQUEST_WRITE_PARAMETER_120   (0xF8)
 #define BHY_PARAMETER_REQUEST_WRITE_PARAMETER_121   (0xF9)
 #define BHY_PARAMETER_REQUEST_WRITE_PARAMETER_127   (0xFF)
+
+/****************************************************/
+/**\name DEFINITIONS FOR PARAM PAGE BHY_PAGE_2 ITEMS */
+/**************************************************************/
+#define PAGE2_SIC_MATRIX_0_1                  1       /* X1, X2 */
+#define PAGE2_SIC_MATRIX_2_3                  2       /* X3, Y1 */
+#define PAGE2_SIC_MATRIX_4_5                  3       /* Y2, Y2 */
+#define PAGE2_SIC_MATRIX_6_7                  4       /* Z1, Z2 */
+#define PAGE2_SIC_MATRIX_8                    5       /* Z3,    */
+
+#define PAGE2_CUS_FIRMWARE_VERSION          125       /* return CUS SDK version information */
+#define PAGE2_BSX_VERSION                   126       /* return BSX library version information */
+
+
+struct cus_version_t
+{
+	u8 minor;  /**< minor version */
+	u8 major;  /**< major version */
+	s16 base;  /**< base version, same as ram_version */
+};
+
 /**************************************************************/
 /**\name    BIT MASK DEFINITION FOR META EVENTS   */
 /**************************************************************/

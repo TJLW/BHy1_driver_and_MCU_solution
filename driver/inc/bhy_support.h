@@ -99,40 +99,11 @@
 /********************************************************************************/
 /*                             FUNCTION DECLARATIONS                            */
 /********************************************************************************/
-
 /*!
 * @brief        Initializes BHY smart sensor and its required connections
 *
 */
 int8_t bhy_initialize_support(void);
-
-/*!
-* @brief        Sends data to BHY via I2C
-*
-* @param[in]    dev_addr    Device I2C slave address
-* @param[in]    reg_addr    Address of destination register
-* @param[in]    p_wr_buf  Pointer to data buffer to be sent
-* @param[in]    wr_len    Length of the data to be sent
-*
-* @retval       0           BHY_SUCCESS
-* @retval       -1          BHY_ERROR
-*
-*/
-int8_t bhy_i2c_write(uint8_t dev_addr, uint8_t reg_addr, uint8_t *wr_buf, uint16_t wr_len);
-
-/*!
-* @brief        Receives data from BHY on I2C
-*
-* @param[in]    dev_addr    Device I2C slave address
-* @param[in]    reg_addr    Address of destination register
-* @param[out]   p_rd_buf  Pointer to data buffer to be received
-* @param[in]    rd_len    Length of the data to be received
-*
-* @retval       0           BHY_SUCCESS
-* @retval       -1          BHY_ERROR
-*
-*/
-int8_t bhy_i2c_read(uint8_t dev_addr, uint8_t reg_addr, uint8_t *rd_buf, uint16_t rd_len);
 
 /*!
 * @brief        Initiates a delay of the length of the argument in milliseconds
@@ -143,9 +114,14 @@ int8_t bhy_i2c_read(uint8_t dev_addr, uint8_t reg_addr, uint8_t *rd_buf, uint16_
 void bhy_delay_msec(uint32_t msec);
 
 /*!
-* @brief        Resets the BHY chip
-*
-*/
-void bhy_reset(void);
+ * @brief provides a print function to the bhy driver on DD2.0 platform
+ */
+void bhy_printf (const u8 * string);
+
+/*!
+ * @brief provides the mcu reference code version
+ */
+uint8_t *bhy_get_version(void);
+
 
 #endif /* BHY_SUPPORT_H_ */

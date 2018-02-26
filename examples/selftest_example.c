@@ -77,98 +77,58 @@
 
 #include "bhy_support.h"
 #include "bhy_uc_driver.h"
-#include ".\firmware\Bosch_PCB_7183_di03_BMI160-7183_di03.2.1.11696_170103.h"
-
+#include ".\firmware\Bosch_PCB_7183_di01_BMI160-7183_di01.2.1.10836_170103.h"
 
 
 /********************************************************************************/
 /*                                       MACROS                                 */
 /********************************************************************************/
-
 /* should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1 */
-#define FIFO_SIZE                      69
-#define GESTURE_SAMPLE_RATE            1
-#define OUT_BUFFER_SIZE                80
+#define FIFO_SIZE                      300
 #define MAX_PACKET_LENGTH              18
-#define TICKS_IN_ONE_SECOND            32000.0F
-#define SENSOR_ID_MASK                 0x1F
+#define OUT_BUFFER_SIZE                60
 
 /********************************************************************************/
 /*                                GLOBAL VARIABLES                              */
 /********************************************************************************/
-/* system timestamp */
-uint32_t bhy_system_timestamp = 0;
 
-uint8_t out_buffer[OUT_BUFFER_SIZE] = " Time=xxx.xxxs Gesture: xxxxxxxxxx   \r\n";
 
+
+/********************************************************************************/
+/*                                STATIC VARIABLES                              */
+/********************************************************************************/
 uint8_t fifo[FIFO_SIZE];
 
 
 /********************************************************************************/
 /*                                 FUNCTIONS                                    */
 /********************************************************************************/
-
-/*!
- * @brief This function is  callback function for acquring sensor datas
- *
- * @param[in]   sensor_data
- * @param[in]   sensor_id
- */
-static void sensors_callback_gesture_recognition(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id)
+static void meta_event_callback(bhy_data_meta_event_t *event_data, bhy_meta_event_type_t event_type)
 {
-    float temp;
-    uint8_t index;
-    /* Since a timestamp is always sent before every new data, and that the callbacks   */
-    /* are called while the parsing is done, then the system timestamp is always equal  */
-    /* to the sample timestamp. (in callback mode only)                                 */
-    temp = bhy_system_timestamp / TICKS_IN_ONE_SECOND;
 
-    for (index = 6; index <= 8; index++)
+    DEBUG(">Meta event type %d,  \n", event_type);
+
+    switch(event_type)
     {
-        out_buffer[index] = floorf(temp) + '0';
-        temp = (temp - floorf(temp)) * 10;
-    }
-
-    for (index = 10; index <= 12; index++)
-    {
-        out_buffer[index] = floorf(temp) + '0';
-        temp = (temp - floorf(temp)) * 10;
-    }
-
-    sensor_id &= SENSOR_ID_MASK;
-    /* gesture recognition sensors are always one-shot, so you need to  */
-    /* re-enable them every time if you want to catch every event       */
-    bhy_enable_virtual_sensor(sensor_id, VS_WAKEUP, GESTURE_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
-
-    switch (sensor_id)
-    {
-        case VS_TYPE_GLANCE:
-            strcpy(&out_buffer[24], "Glance    ");
+        case BHY_META_EVENT_TYPE_INITIALIZED:
+            DEBUG("initialize success!\n");
             break;
-        case VS_TYPE_PICKUP:
-            strcpy(&out_buffer[24], "Pickup    ");
-            break;
-        case VS_TYPE_SIGNIFICANT_MOTION:
-            strcpy(&out_buffer[24], "Sig motion");
+        case BHY_META_EVENT_TYPE_SELF_TEST_RESULTS:
+            if(event_data->event_specific == BHY_SUCCESS)
+            {
+                DEBUG("self test result success!  sensor_type=%d \n", event_data->sensor_type);
+            }
+            else
+            {
+                DEBUG("self test result fail!  sensor_type=%d  \n", event_data->sensor_type);
+            }
             break;
         default:
-            strcpy(&out_buffer[24], "Unknown   ");
+            DEBUG("unknown meta event\n");
             break;
     }
-
-    DEBUG("%s\n", out_buffer);
 }
 
-/*!
- * @brief This function is time stamp callback function that process data in fifo.
- *
- * @param[in]   new_timestamp
- */
-void timestamp_callback(bhy_data_scalar_u16_t *new_timestamp)
-{
-    /* updates the system timestamp */
-    bhy_update_system_timestamp(new_timestamp, &bhy_system_timestamp);
-}
 /*!
  * @brief This function is used to run bhy hub
  */
@@ -186,6 +146,11 @@ void demo_sensor(void)
     BHY_RETURN_FUNCTION_TYPE   result;
     struct cus_version_t      bhy_cus_version;
 
+    bhy_install_meta_event_callback(BHY_META_EVENT_TYPE_INITIALIZED, meta_event_callback);
+    bhy_install_meta_event_callback(BHY_META_EVENT_TYPE_SELF_TEST_RESULTS, meta_event_callback);
+
+    DEBUG("version=%s, %s, %s\n", bhy_get_version(), __DATE__, __TIME__);
+    DEBUG("start example\n");
 
     /* init the bhy chip */
     if(bhy_driver_init(&bhy1_fw))
@@ -195,24 +160,18 @@ void demo_sensor(void)
 
     /* wait for the bhy trigger the interrupt pin go down and up again */
     while (ioport_get_pin_level(BHY_INT));
-
     while (!ioport_get_pin_level(BHY_INT));
 
     bhy_read_parameter_page(BHY_PAGE_2, PAGE2_CUS_FIRMWARE_VERSION, (uint8_t*)&bhy_cus_version, sizeof(struct cus_version_t));
     DEBUG("cus version base:%d major:%d minor:%d\n", bhy_cus_version.base, bhy_cus_version.major, bhy_cus_version.minor);
 
-    /* enables the gesture recognition and assigns the callback */
-    bhy_enable_virtual_sensor(VS_TYPE_GLANCE, VS_WAKEUP, GESTURE_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
-    bhy_enable_virtual_sensor(VS_TYPE_PICKUP, VS_WAKEUP, GESTURE_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
-    bhy_enable_virtual_sensor(VS_TYPE_SIGNIFICANT_MOTION, VS_WAKEUP, GESTURE_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
-
-    bhy_install_sensor_callback(VS_TYPE_GLANCE, VS_WAKEUP, sensors_callback_gesture_recognition);
-    bhy_install_sensor_callback(VS_TYPE_PICKUP, VS_WAKEUP, sensors_callback_gesture_recognition);
-    bhy_install_sensor_callback(VS_TYPE_SIGNIFICANT_MOTION, VS_WAKEUP, sensors_callback_gesture_recognition);
-
-    bhy_install_timestamp_callback(VS_WAKEUP, timestamp_callback);
-
-
+	bhy_set_chip_control(0);
+	bhy_set_host_interface_control(BHY_HOST_SELFTEST, ENABLE);
+	delay_ms(100);
+	
+	bhy_set_chip_control(1);
+	delay_ms(100);
+	
     while(1)
     {
         /* wait until the interrupt fires */
