@@ -77,31 +77,103 @@
 
 #include "bhy_support.h"
 #include "bhy_uc_driver.h"
-#include ".\firmware\Bosch_PCB_7183_di03_BMI160-7183_di03.2.1.11696_170103.h"
+#include ".\firmware\Bosch_PCB_7183_di01_BMI160_BMP280-7183_di01.2.1.10836.h"
 
 
 
 /********************************************************************************/
 /*                                       MACROS                                 */
 /********************************************************************************/
+/* ctrl_meas osrs_t[2:0] */
+#define BMP280_OSRS_T_POS              (5)
+#define BMP280_OSRS_T_SKIPPED          (0x00)
+#define BMP280_OSRS_T_1X               (0x01)
+#define BMP280_OSRS_T_2X               (0x02)
+#define BMP280_OSRS_T_4X               (0x03)
+#define BMP280_OSRS_T_8X               (0x04)
+#define BMP280_OSRS_T_16X              (0x05)
+
+/* ctrl_meas osrs_p[2:0] */
+#define BMP280_OSRS_P_POS              (2)
+#define BMP280_OSRS_P_SKIPPED          (0x00)
+#define BMP280_OSRS_P_1X               (0x01)
+#define BMP280_OSRS_P_2X               (0x02)
+#define BMP280_OSRS_P_4X               (0x03)
+#define BMP280_OSRS_P_8X               (0x04)
+#define BMP280_OSRS_P_16X              (0x05)
+
+/* ctrl_meas mode[1:0] Sensor Specific constants */
+#define BMP280_MODE_POS                (0)
+#define BMP280_SLEEP_MODE              (0x00)
+#define BMP280_FORCED_MODE             (0x01)
+#define BMP280_NORMAL_MODE             (0x03)
+
+/* config t_sb[2:0] standby duration */
+#define BMP280_STANDBYTIME_POS         (5)
+#define BMP280_STANDBYTIME_0_5_MS      (0x00)
+#define BMP280_STANDBYTIME_63_MS       (0x01)
+#define BMP280_STANDBYTIME_125_MS      (0x02)
+#define BMP280_STANDBYTIME_250_MS      (0x03)
+#define BMP280_STANDBYTIME_500_MS      (0x04)
+#define BMP280_STANDBYTIME_1000_MS     (0x05)
+#define BMP280_STANDBYTIME_2000_MS     (0x06)
+#define BMP280_STANDBYTIME_4000_MS     (0x07)
+
+/* config filter[2:0] Filter coefficient */
+#define BMP280_FILTER_COEFF_POS        (2)
+#define BMP280_FILTER_COEFF_OFF        (0x00)
+#define BMP280_FILTER_COEFF_2          (0x01)
+#define BMP280_FILTER_COEFF_4          (0x02)
+#define BMP280_FILTER_COEFF_8          (0x03)
+#define BMP280_FILTER_COEFF_16         (0x04)
+
+
+#define BMP280_REG_CTRL_MEAS_VAL(osrs_t, osrs_p, mode) ((osrs_t << BMP280_OSRS_T_POS) | (osrs_p << BMP280_OSRS_P_POS) | (mode << BMP280_MODE_POS))
+#define BMP280_REG_CONFIG_VAL(standby, filter) ((standby << BMP280_STANDBYTIME_POS) | (filter << BMP280_FILTER_COEFF_POS))
+
+
+/* recommended 6 usecase settings.for applications. Detail BMP280 see datasheet Table 15 
+ *
+ * !!! Please consult Bosch engineer for fine tuning these BMP parameters. !!!
+ */
+#define USECASE1_LOWPOWER_CTRL_MEAS           BMP280_REG_CTRL_MEAS_VAL(BMP280_OSRS_T_2X, BMP280_OSRS_P_16X, BMP280_NORMAL_MODE)  //0x57
+#define USECASE1_LOWPOWER_CONFIG              BMP280_REG_CONFIG_VAL(BMP280_STANDBYTIME_63_MS, BMP280_FILTER_COEFF_4)             //0x28
+
+#define USECASE2_DYNAMIC_CTRL_MEAS            BMP280_REG_CTRL_MEAS_VAL(BMP280_OSRS_T_1X, BMP280_OSRS_P_4X, BMP280_NORMAL_MODE)   //0x2f
+#define USECASE2_DYNAMIC_CONFIG               BMP280_REG_CONFIG_VAL(BMP280_STANDBYTIME_0_5_MS, BMP280_FILTER_COEFF_16)           //0x10
+
+#define USECASE3_LOWPOWER_FORCED_CTRL_MEAS    BMP280_REG_CTRL_MEAS_VAL(BMP280_OSRS_T_1X, BMP280_OSRS_P_1X, BMP280_FORCED_MODE)   //0x25
+#define USECASE3_LOWPOWER_FORCED_CONFIG       BMP280_REG_CONFIG_VAL(BMP280_STANDBYTIME_1000_MS, BMP280_FILTER_COEFF_OFF)         //0xa0
+
+#define USECASE4_CHANGE_DETECTION_CTRL_MEAS   BMP280_REG_CTRL_MEAS_VAL(BMP280_OSRS_T_1X, BMP280_OSRS_P_4X, BMP280_NORMAL_MODE)   //0x2f
+#define USECASE4_CHANGE_DETECTION_CONFIG      BMP280_REG_CONFIG_VAL(BMP280_STANDBYTIME_125_MS, BMP280_FILTER_COEFF_4)            //0x48
+
+#define USECASE5_DROP_DETECTION_CTRL_MEAS     BMP280_REG_CTRL_MEAS_VAL(BMP280_OSRS_T_1X, BMP280_OSRS_P_2X, BMP280_NORMAL_MODE)   //0x2b
+#define USECASE5_DROP_DETECTION_CONFIG        BMP280_REG_CONFIG_VAL(BMP280_STANDBYTIME_0_5_MS, BMP280_FILTER_COEFF_OFF)          //0x00
+
+#define USECASE6_INDOOR_NAVIGATION_CTRL_MEAS  BMP280_REG_CTRL_MEAS_VAL(BMP280_OSRS_T_2X, BMP280_OSRS_P_16X, BMP280_NORMAL_MODE)  //0x57
+#define USECASE6_INDOOR_NAVIGATION_CONFIG     BMP280_REG_CONFIG_VAL(BMP280_STANDBYTIME_0_5_MS, BMP280_FILTER_COEFF_16)           //0x10
+
+
 
 /* should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1 */
-#define FIFO_SIZE                      69
-#define GESTURE_SAMPLE_RATE            1
-#define OUT_BUFFER_SIZE                80
+#define FIFO_SIZE                      300
 #define MAX_PACKET_LENGTH              18
-#define TICKS_IN_ONE_SECOND            32000.0F
-#define SENSOR_ID_MASK                 0x1F
+
+#define BMP280_PARAM_PAGE       2
+#define BMP280_PARAM_ITEM       18
 
 /********************************************************************************/
 /*                                GLOBAL VARIABLES                              */
 /********************************************************************************/
-/* system timestamp */
-uint32_t bhy_system_timestamp = 0;
 
-uint8_t out_buffer[OUT_BUFFER_SIZE] = " Time=xxx.xxxs Gesture: xxxxxxxxxx   \r\n";
 
-uint8_t fifo[FIFO_SIZE];
+
+/********************************************************************************/
+/*                                STATIC VARIABLES                              */
+/********************************************************************************/
+static uint8_t fifo[FIFO_SIZE];
+static uint8_t bmp_settings[2];
 
 
 /********************************************************************************/
@@ -114,61 +186,16 @@ uint8_t fifo[FIFO_SIZE];
  * @param[in]   sensor_data
  * @param[in]   sensor_id
  */
-static void sensors_callback_gesture_recognition(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id)
+static void sensors_callback_pressure(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id)
 {
-    float temp;
-    uint8_t index;
-    /* Since a timestamp is always sent before every new data, and that the callbacks   */
-    /* are called while the parsing is done, then the system timestamp is always equal  */
-    /* to the sample timestamp. (in callback mode only)                                 */
-    temp = bhy_system_timestamp / TICKS_IN_ONE_SECOND;
-
-    for (index = 6; index <= 8; index++)
+    if(sensor_id == VS_ID_BAROMETER_WAKEUP)
     {
-        out_buffer[index] = floorf(temp) + '0';
-        temp = (temp - floorf(temp)) * 10;
+        /* 1/128Pa Detail see BHI datasheet */
+        DEBUG("pressure[%d] data: 0x%x %dPa\n", sensor_data->data_scalar_u24.sensor_id,\
+                            sensor_data->data_scalar_u24.data, sensor_data->data_scalar_u24.data/128);
     }
-
-    for (index = 10; index <= 12; index++)
-    {
-        out_buffer[index] = floorf(temp) + '0';
-        temp = (temp - floorf(temp)) * 10;
-    }
-
-    sensor_id &= SENSOR_ID_MASK;
-    /* gesture recognition sensors are always one-shot, so you need to  */
-    /* re-enable them every time if you want to catch every event       */
-    bhy_enable_virtual_sensor(sensor_id, VS_WAKEUP, GESTURE_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
-
-    switch (sensor_id)
-    {
-        case VS_TYPE_GLANCE:
-            strcpy(&out_buffer[24], "Glance    ");
-            break;
-        case VS_TYPE_PICKUP:
-            strcpy(&out_buffer[24], "Pickup    ");
-            break;
-        case VS_TYPE_SIGNIFICANT_MOTION:
-            strcpy(&out_buffer[24], "Sig motion");
-            break;
-        default:
-            strcpy(&out_buffer[24], "Unknown   ");
-            break;
-    }
-
-    DEBUG("%s\n", out_buffer);
 }
 
-/*!
- * @brief This function is time stamp callback function that process data in fifo.
- *
- * @param[in]   new_timestamp
- */
-void timestamp_callback(bhy_data_scalar_u16_t *new_timestamp)
-{
-    /* updates the system timestamp */
-    bhy_update_system_timestamp(new_timestamp, &bhy_system_timestamp);
-}
 /*!
  * @brief This function is used to run bhy hub
  */
@@ -201,17 +228,26 @@ void demo_sensor(void)
     bhy_read_parameter_page(BHY_PAGE_2, PAGE2_CUS_FIRMWARE_VERSION, (uint8_t*)&bhy_cus_version, sizeof(struct cus_version_t));
     DEBUG("cus version base:%d major:%d minor:%d\n", bhy_cus_version.base, bhy_cus_version.major, bhy_cus_version.minor);
 
-    /* enables the gesture recognition and assigns the callback */
-    bhy_enable_virtual_sensor(VS_TYPE_GLANCE, VS_WAKEUP, GESTURE_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
-    bhy_enable_virtual_sensor(VS_TYPE_PICKUP, VS_WAKEUP, GESTURE_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
-    bhy_enable_virtual_sensor(VS_TYPE_SIGNIFICANT_MOTION, VS_WAKEUP, GESTURE_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
+    /* recommended 6 usecase settings.for applications. Detail BMP280 see datasheet Table 15 
+     *
+     * !!! Please consult Bosch engineer for fine tuning these BMP parameters. !!!
+     */
+    bmp_settings[0] = USECASE1_LOWPOWER_CTRL_MEAS;
+    bmp_settings[1] = USECASE1_LOWPOWER_CONFIG;
+    bhy_write_parameter_page(BMP280_PARAM_PAGE, BMP280_PARAM_ITEM, &bmp_settings[0], 2);
 
-    bhy_install_sensor_callback(VS_TYPE_GLANCE, VS_WAKEUP, sensors_callback_gesture_recognition);
-    bhy_install_sensor_callback(VS_TYPE_PICKUP, VS_WAKEUP, sensors_callback_gesture_recognition);
-    bhy_install_sensor_callback(VS_TYPE_SIGNIFICANT_MOTION, VS_WAKEUP, sensors_callback_gesture_recognition);
 
-    bhy_install_timestamp_callback(VS_WAKEUP, timestamp_callback);
+    /* install the callback function for parse fifo data */
+    if(bhy_install_sensor_callback(VS_TYPE_PRESSURE, VS_WAKEUP, sensors_callback_pressure))
+    {
+        DEBUG("Fail to install sensor callback\n");
+    }
 
+    /* enables the virtual sensor */
+    if(bhy_enable_virtual_sensor(VS_TYPE_PRESSURE, VS_WAKEUP, 20, 0, VS_FLUSH_NONE, 0, 0))
+    {
+        DEBUG("Fail to enable sensor id=%d\n", VS_TYPE_PRESSURE);
+    }
 
     while(1)
     {

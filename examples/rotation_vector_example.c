@@ -60,192 +60,53 @@
   * or otherwise under any patent or patent rights of Bosch. Specifications
   * mentioned in the Information are subject to change without notice.
   *
-  * @file               rotation_vector_example.c
-  *
-  * @date            12/15/2016
-  *
-  * @brief            example to stream the absolution rotation vector to a terminal program on the computer at 25hz sampling rate
-  *                     Terminal configuration : 115200, 8N1
   */
+
 
 /********************************************************************************/
 /*                                  HEADER FILES                                */
 /********************************************************************************/
-
+#include <stdint.h>
 #include <string.h>
-#include <math.h>
+#include <stdarg.h>
 
 #include "asf.h"
-#include "conf_board.h"
-#include "led.h"
+#include "task.h"
+#include "arm_math.h"
+#include "demo-tasks.h"
+
+#include "bhy_support.h"
 #include "bhy_uc_driver.h"
-/* for customer , to put the firmware array */
-#include "BHIfw.h"
+#include ".\firmware\Bosch_PCB_7183_di03_BMI160_BMM150-7183_di03.2.1.11696_170103.h"
+
+
 
 /********************************************************************************/
 /*                                       MACROS                                 */
 /********************************************************************************/
-
-/** TWI Bus Clock 400kHz */
-#define TWI_CLK                        400000
 /* should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1 */
-#define ARRAYSIZE                      69
-#define EDBG_FLEXCOM                   FLEXCOM7
-#define EDBG_USART                     USART7
-#define EDBG_FLEXCOM_IRQ               FLEXCOM7_IRQn
-#define DELAY_1US_CIRCLES              0x06
-#define DELAY_1MS_CIRCLES              0x1BA0
-#define ROTATION_VECTOR_SAMPLE_RATE    25
+#define FIFO_SIZE                      300
+#define ROTATION_VECTOR_SAMPLE_RATE    100
 #define MAX_PACKET_LENGTH              18
 #define OUT_BUFFER_SIZE                60
-
-/*!
- * @brief This structure holds all setting for the console
- */
-const sam_usart_opt_t usart_console_settings =
-{
-    115200,
-    US_MR_CHRL_8_BIT,
-    US_MR_PAR_NO,
-    US_MR_NBSTOP_1_BIT,
-    US_MR_CHMODE_NORMAL
-};
 
 /********************************************************************************/
 /*                                GLOBAL VARIABLES                              */
 /********************************************************************************/
+
+
+
+/********************************************************************************/
+/*                                STATIC VARIABLES                              */
+/********************************************************************************/
 char out_buffer[OUT_BUFFER_SIZE] = " W: 0.999  X: 0.999  Y: 0.999  Z: 0.999   \r";
 
-/********************************************************************************/
-/*                           STATIC FUNCTION DECLARATIONS                       */
-/********************************************************************************/
-static void i2c_pre_initialize(void);
-static void twi_initialize(void);
-static void edbg_usart_enable(void);
-static void mdelay(uint32_t delay_ms);
-static void udelay(uint32_t delay_us);
-static void device_specific_initialization(void);
-static void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id);
+uint8_t fifo[FIFO_SIZE];
+
 
 /********************************************************************************/
-/*                                    FUNCTIONS                                 */
+/*                                 FUNCTIONS                                    */
 /********************************************************************************/
-
-/*!
- *
- * @brief This function is used to delay a number of microseconds actively.
- *
- * @param[in]   delay_us    microseconds to be delayed
- */
-static void udelay(uint32_t delay_us)
-{
-    volatile uint32_t dummy;
-    uint32_t calu;
-
-    for (uint32_t u = 0; u < delay_us; u++)
-    {
-        for (dummy = 0; dummy < DELAY_1US_CIRCLES; dummy++)
-        {
-            calu++;
-        }
-    }
-}
-
-/*!
- * @brief This function is used to delay a number of milliseconds actively.
- *
- * @param[in]   delay_ms        milliseconds to be delayed
- */
-static void mdelay(uint32_t delay_ms)
-{
-    volatile uint32_t dummy;
-    uint32_t calu;
-
-    for (uint32_t u = 0; u < delay_ms; u++)
-    {
-        for (dummy = 0; dummy < DELAY_1MS_CIRCLES; dummy++)
-        {
-            calu++;
-        }
-    }
-}
-
-/*!
- *
- * @brief     This function  issues 9 clock cycles on the SCL line
- *             so that all devices release the SDA line if they are holding it
- */
-static void i2c_pre_initialize(void)
-{
-    ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
-
-    for (int8_t i = 0; i < 9; ++i)
-    {
-        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_LOW);
-        udelay(2);
-
-        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_HIGH);
-        udelay(1);
-    }
-}
-
-/*!
- *
- * @brief     This function Enable the peripheral and set TWI mode
- *
- */
-static void twi_initialize(void)
-{
-    twi_options_t opt;
-
-    opt.master_clk = sysclk_get_cpu_hz();
-    opt.speed = TWI_CLK;
-    /* Enable the peripheral and set TWI mode. */
-    flexcom_enable(BOARD_FLEXCOM_TWI);
-    flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
-
-    if (twi_master_init(TWI4, &opt) != TWI_SUCCESS)
-    {
-        while (1)
-        {
-            ;/* Capture error */
-        }
-    }
-}
-
-/*!
- *
- * @brief     This function is EDBG USART RX IRQ Handler ,just echo characters
- *
- */
-static void FLEXCOM7_Handler (void)
-{
-    uint32_t tmp_data;
-
-    while (usart_is_rx_ready(EDBG_USART))
-    {
-        usart_getchar(EDBG_USART, &tmp_data);
-        usart_putchar(EDBG_USART, tmp_data);
-    }
-}
-
-/*!
- *
- * @brief     This function enable usart
- *
- */
-static void edbg_usart_enable(void)
-{
-    flexcom_enable(EDBG_FLEXCOM);
-    flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
-
-    usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
-    usart_enable_tx(EDBG_USART);
-    usart_enable_rx(EDBG_USART);
-
-    usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
-    NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
-}
 
 /*!
  * @brief This function is  callback function for acquring sensor datas
@@ -253,7 +114,7 @@ static void edbg_usart_enable(void)
  * @param[in]   sensor_data
  * @param[in]   sensor_id
  */
-static void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id)
+static void sensors_callback_rotation_vector(bhy_data_generic_t * sensor_data, bhy_virtual_sensor_t sensor_id)
 {
     float temp;
     uint8_t index;
@@ -261,130 +122,143 @@ static void sensors_callback(bhy_data_generic_t * sensor_data, bhy_virtual_senso
     temp = sensor_data->data_quaternion.w / 16384.0f; /* change the data unit by dividing 16384 */
     out_buffer[3] = temp < 0 ? '-' : ' ';
     temp = temp < 0 ? -temp : temp;
-    out_buffer[4] = floorf(temp) + '0';
+    out_buffer[4] = floor(temp) + '0';
 
     for (index = 6; index <= 8; index++)
     {
-        temp = (temp - floorf(temp)) * 10;
-        out_buffer[index] = floorf(temp) + '0';
+        temp = (temp - floor(temp)) * 10;
+        out_buffer[index] = floor(temp) + '0';
     }
 
     temp = sensor_data->data_quaternion.x / 16384.0f;
     out_buffer[13] = temp < 0 ? '-' : ' ';
     temp = temp < 0 ? -temp : temp;
-    out_buffer[14] = floorf(temp) + '0';
+    out_buffer[14] = floor(temp) + '0';
 
     for (index = 16; index <= 18; index++)
     {
-        temp = (temp - floorf(temp)) * 10;
-        out_buffer[index] = floorf(temp) + '0';
+        temp = (temp - floor(temp)) * 10;
+        out_buffer[index] = floor(temp) + '0';
     }
 
     temp = sensor_data->data_quaternion.y / 16384.0f;
     out_buffer[23] = temp < 0 ? '-' : ' ';
     temp = temp < 0 ? -temp : temp;
-    out_buffer[24] = floorf(temp) + '0';
+    out_buffer[24] = floor(temp) + '0';
 
     for (index = 26; index <= 28; index++)
     {
-        temp = (temp - floorf(temp)) * 10;
-        out_buffer[index] = floorf(temp) + '0';
+        temp = (temp - floor(temp)) * 10;
+        out_buffer[index] = floor(temp) + '0';
     }
 
     temp = sensor_data->data_quaternion.z / 16384.0f;
     out_buffer[33] = temp < 0 ? '-' : ' ';
     temp = temp < 0 ? -temp : temp;
-    out_buffer[34] = floorf(temp) + '0';
+    out_buffer[34] = floor(temp) + '0';
 
     for (index = 36; index <= 38; index++)
     {
-        temp = (temp - floorf(temp)) * 10;
-        out_buffer[index] = floorf(temp) + '0';
+        temp = (temp - floor(temp)) * 10;
+        out_buffer[index] = floor(temp) + '0';
     }
 
-    usart_write_line(EDBG_USART, out_buffer);
+
+    DEBUG("x=%d, y=%d, z=%d, w=%d\n",
+    sensor_data->data_quaternion.x,
+    sensor_data->data_quaternion.y,
+    sensor_data->data_quaternion.z,
+    sensor_data->data_quaternion.w
+    );
 }
-
 /*!
- *
- * @brief     This function regroups all the initialization specific to SAM G55
- *
+ * @brief This function is used to run bhy hub
  */
-static void device_specific_initialization(void)
+void demo_sensor(void)
 {
-    /* Initialize the SAM system */
-    sysclk_init();
+    int8_t ret;
 
-    /* execute this function before board_init */
-    i2c_pre_initialize();
+    /* BHY Variable*/
+    uint8_t                    *fifoptr           = NULL;
+    uint8_t                    bytes_left_in_fifo = 0;
+    uint16_t                   bytes_remaining    = 0;
+    uint16_t                   bytes_read         = 0;
+    bhy_data_generic_t         fifo_packet;
+    bhy_data_type_t            packet_type;
+    BHY_RETURN_FUNCTION_TYPE   result;
+    /* the remapping matrix for BHA or BHI here should be configured according to its placement on customer's PCB. */
+    /* for details, please check 'Application Notes Axes remapping of BHA250(B)/BHI160(B)' document. */
+    int8_t                     bhy_mapping_matrix_config[3*3] = {0,1,0,-1,0,0,0,0,1};
+    /* the remapping matrix for Magnetometer should be configured according to its placement on customer's PCB.  */
+    /* for details, please check 'Application Notes Axes remapping of BHA250(B)/BHI160(B)' document. */
+    int8_t                     mag_mapping_matrix_config[3*3] = {0,1,0,1,0,0,0,0,-1};
+    /* the sic matrix should be calculated for customer platform by logging uncalibrated magnetometer data. */
+    /* the sic matrix here is only an example array. Customer should generate their own matrix. */
+    /* This affects magnetometer fusion performance. */
+    float sic_array[9] = {1.07648, 0.00627, -0.00164, 0.00627, 1.04811, -0.02701, -0.00164, -0.02701, 0.92287};
+    struct cus_version_t       bhy_cus_version;
 
-    /* Initialize the board */
-    board_init();
 
-    /* configure the i2c */
-    twi_initialize();
+    DEBUG("version=%s\n", bhy_get_version());
 
-    /* configures the serial port */
-    edbg_usart_enable();
-
-    /* configures the interrupt pin GPIO */
-    ioport_set_pin_dir(EXT1_PIN_GPIO_1, IOPORT_DIR_INPUT);
-    ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
-}
-
-/*!
- * @brief     main body function
- *
- * @retval   result for execution
- */
-int main(void)
-{
-    uint8_t                   array[ARRAYSIZE];
-    uint8_t                   *fifoptr           = NULL;
-    uint8_t                   bytes_left_in_fifo = 0;
-    uint16_t                  bytes_remaining    = 0;
-    uint16_t                  bytes_read         = 0;
-    bhy_data_generic_t        fifo_packet;
-    bhy_data_type_t           packet_type;
-    BHY_RETURN_FUNCTION_TYPE  result;
-
-    /* Initialize the SAM G55 system */
-    device_specific_initialization();
-
-    /* initializes the BHI160 and loads the RAM patch */
-    bhy_driver_init(_bhi_fw);
-
-    /* wait for the interrupt pin to go down then up again */
-    while (ioport_get_pin_level(EXT1_PIN_GPIO_1))
+    /* init the bhy chip */
+    if(bhy_driver_init(&bhy1_fw))
     {
+        DEBUG("Fail to init bhy\n");
     }
 
-    while (!ioport_get_pin_level(EXT1_PIN_GPIO_1))
+    /* wait for the bhy trigger the interrupt pin go down and up again */
+    while (ioport_get_pin_level(BHY_INT));
+
+    while (!ioport_get_pin_level(BHY_INT));
+
+    bhy_read_parameter_page(BHY_PAGE_2, PAGE2_CUS_FIRMWARE_VERSION, (uint8_t*)&bhy_cus_version, sizeof(struct cus_version_t));
+    DEBUG("cus version base:%d major:%d minor:%d\n", bhy_cus_version.base, bhy_cus_version.major, bhy_cus_version.minor);
+
+    /* the remapping matrix for BHI and Magmetometer should be configured here to make sure rotation vector is */
+    /* calculated in a correct coordinates system. */
+    bhy_mapping_matrix_set(PHYSICAL_SENSOR_INDEX_ACC, bhy_mapping_matrix_config);
+    bhy_mapping_matrix_set(PHYSICAL_SENSOR_INDEX_MAG, mag_mapping_matrix_config);
+    bhy_mapping_matrix_set(PHYSICAL_SENSOR_INDEX_GYRO, bhy_mapping_matrix_config);
+    /* This sic matrix setting affects magnetometer fusion performance. */
+    bhy_set_sic_matrix(sic_array);
+
+    /* install the callback function for parse fifo data */
+    if(bhy_install_sensor_callback(VS_TYPE_ROTATION_VECTOR, VS_WAKEUP, sensors_callback_rotation_vector))
     {
+        DEBUG("Fail to install sensor callback\n");
     }
 
-    /* enables the absolute orientation vector and assigns the callback */
-    bhy_enable_virtual_sensor(VS_TYPE_ROTATION_VECTOR, VS_WAKEUP, ROTATION_VECTOR_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0);
-    bhy_install_sensor_callback(VS_TYPE_ROTATION_VECTOR, VS_WAKEUP, sensors_callback);
+    /* enables the virtual sensor */
+    if(bhy_enable_virtual_sensor(VS_TYPE_ROTATION_VECTOR, VS_WAKEUP, ROTATION_VECTOR_SAMPLE_RATE, 0, VS_FLUSH_NONE, 0, 0))
+    {
+        DEBUG("Fail to enable sensor id=%d\n", VS_TYPE_ROTATION_VECTOR);
+    }
 
-    /* continuously read and parse the fifo */
-    while (true)
+    while(1)
     {
         /* wait until the interrupt fires */
         /* unless we already know there are bytes remaining in the fifo */
-        while (!ioport_get_pin_level(EXT1_PIN_GPIO_1) && !bytes_remaining)
+        while (!ioport_get_pin_level(BHY_INT) && !bytes_remaining)
         {
         }
 
-        bhy_read_fifo(array + bytes_left_in_fifo, ARRAYSIZE - bytes_left_in_fifo, &bytes_read, &bytes_remaining);
+        bhy_read_fifo(fifo + bytes_left_in_fifo, FIFO_SIZE - bytes_left_in_fifo, &bytes_read, &bytes_remaining);
         bytes_read           += bytes_left_in_fifo;
-        fifoptr              = array;
+        fifoptr              = fifo;
         packet_type          = BHY_DATA_TYPE_PADDING;
 
         do
         {
             /* this function will call callbacks that are registered */
             result = bhy_parse_next_fifo_packet(&fifoptr, &bytes_read, &fifo_packet, &packet_type);
+
+            /* prints all the debug packets */
+            if (packet_type == BHY_DATA_TYPE_DEBUG)
+            {
+                bhy_print_debug_packet(&fifo_packet.data_debug, bhy_printf);
+            }
+            
             /* the logic here is that if doing a partial parsing of the fifo, then we should not parse  */
             /* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete   */
             /* packet */
@@ -397,12 +271,9 @@ int main(void)
             /* shifts the remaining bytes to the beginning of the buffer */
             while (bytes_left_in_fifo < bytes_read)
             {
-                array[bytes_left_in_fifo++] = *(fifoptr++);
+                fifo[bytes_left_in_fifo++] = *(fifoptr++);
             }
         }
     }
-
-    return BHY_SUCCESS;
 }
-
 /** @}*/

@@ -60,288 +60,110 @@
   * or otherwise under any patent or patent rights of Bosch. Specifications
   * mentioned in the Information are subject to change without notice.
   *
-  * @file              fifo_watermark_example.c
-  *
-  * @date            12/15/2016
-  *
-  * @brief            example to test the watermark feature of the sensor.
-  *                     Terminal configuration : 115200, 8N1
   */
+
 
 /********************************************************************************/
 /*                                  HEADER FILES                                */
 /********************************************************************************/
-
+#include <stdint.h>
 #include <string.h>
-#include <math.h>
+#include <stdarg.h>
 
 #include "asf.h"
-#include "conf_board.h"
-#include "led.h"
+#include "task.h"
+#include "arm_math.h"
+#include "demo-tasks.h"
+
+#include "bhy_support.h"
 #include "bhy_uc_driver.h"
-/* for customer , to put the firmware array */
-#include "BHIfw.h"
+#include ".\firmware\Bosch_PCB_7183_di03_BMI160-7183_di03.2.1.11696_170103.h"
+
+
 
 /********************************************************************************/
 /*                                       MACROS                                 */
 /********************************************************************************/
-/** TWI Bus Clock 400kHz */
-#define TWI_CLK              400000
 /* should be greater or equal to 69 bytes, page size (50) + maximum packet size(18) + 1 */
-#define ARRAYSIZE            250
+#define FIFO_SIZE            250
 #define WATERMARK            200
-#define EDBG_FLEXCOM         FLEXCOM7
-#define EDBG_USART           USART7
-#define EDBG_FLEXCOM_IRQ     FLEXCOM7_IRQn
-#define DELAY_1US_CIRCLES    0x06
-#define DELAY_1MS_CIRCLES    0x1BA0
 #define FIFO_SAMPLE_RATE     100
+#define MAX_PACKET_LENGTH    18
 #define REPORT_LATENCY_MS    1000
-#define OUT_BUFFER_SIZE      60
-
-/*!
- * @brief This structure holds all setting for the console
- */
-const sam_usart_opt_t usart_console_settings =
-{
-    115200,
-    US_MR_CHRL_8_BIT,
-    US_MR_PAR_NO,
-    US_MR_NBSTOP_1_BIT,
-    US_MR_CHMODE_NORMAL
-};
 
 /********************************************************************************/
 /*                                GLOBAL VARIABLES                              */
 /********************************************************************************/
-uint8_t out_buffer[OUT_BUFFER_SIZE] = "";
+
+
 
 /********************************************************************************/
-/*                           STATIC FUNCTION DECLARATIONS                       */
+/*                                STATIC VARIABLES                              */
 /********************************************************************************/
-static void i2c_pre_initialize(void);
-static void twi_initialize(void);
-static void edbg_usart_enable(void);
-static void mdelay(uint32_t delay_ms);
-static void udelay(uint32_t delay_us);
-static void device_specific_initialization(void);
-static void print_read_size(u16 bytes_read);
+uint8_t fifo[FIFO_SIZE];
+
 
 /********************************************************************************/
-/*                                    FUNCTIONS                                 */
+/*                                 FUNCTIONS                                    */
 /********************************************************************************/
-
 /*!
- * @brief This function is used to delay a number of microseconds actively.
- *
- * @param[in]   delay_us    microseconds to be delayed
+ * @brief This function is used to run bhy hub
  */
-static void udelay(uint32_t delay_us)
+void demo_sensor(void)
 {
-    volatile uint32_t dummy;
-    uint32_t calu;
+    int8_t ret;
 
-    for (uint32_t u = 0; u < delay_us; u++)
+    /* BHY Variable*/
+    uint8_t                    *fifoptr           = NULL;
+    uint8_t                    bytes_left_in_fifo = 0;
+    uint16_t                   bytes_remaining    = 0;
+    uint16_t                   bytes_read         = 0;
+    uint16_t                   wake_fifo_length        = 0;
+    bhy_data_generic_t         fifo_packet;
+    bhy_data_type_t            packet_type;
+    BHY_RETURN_FUNCTION_TYPE   result;
+    struct cus_version_t      bhy_cus_version;
+
+
+    /* init the bhy chip */
+    if(bhy_driver_init(&bhy1_fw))
     {
-        for (dummy = 0; dummy < DELAY_1US_CIRCLES; dummy++)
-        {
-            calu++;
-        }
-    }
-}
-
-/*!
- * @brief This function is used to delay a number of milliseconds actively.
- *
- * @param[in]   delay_ms        milliseconds to be delayed
- */
-static void mdelay(uint32_t delay_ms)
-{
-    volatile uint32_t dummy;
-    uint32_t calu;
-
-    for (uint32_t u = 0; u < delay_ms; u++)
-    {
-        for (dummy = 0; dummy < DELAY_1US_CIRCLES; dummy++)
-        {
-            calu++;
-        }
-    }
-}
-
-/*!
- * @brief     This function  issues 9 clock cycles on the SCL line
- *             so that all devices release the SDA line if they are holding it
- */
-static void i2c_pre_initialize(void)
-{
-    ioport_set_pin_dir(EXT1_PIN_I2C_SCL, IOPORT_DIR_OUTPUT);
-
-    for (int8_t i = 0; i < 9; ++i)
-    {
-        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_LOW);
-        udelay(2);
-
-        ioport_set_pin_level(EXT1_PIN_I2C_SCL, IOPORT_PIN_LEVEL_HIGH);
-        udelay(1);
-    }
-}
-
-/*!
- * @brief     This function Enable the peripheral and set TWI mode
- *
- */
-static void twi_initialize(void)
-{
-    twi_options_t opt;
-
-    opt.master_clk = sysclk_get_cpu_hz();
-    opt.speed = TWI_CLK;
-    /* Enable the peripheral and set TWI mode. */
-    flexcom_enable(BOARD_FLEXCOM_TWI);
-    flexcom_set_opmode(BOARD_FLEXCOM_TWI, FLEXCOM_TWI);
-
-    if (twi_master_init(TWI4, &opt) != TWI_SUCCESS)
-    {
-        while (1)
-        {
-            ;/* Capture error */
-        }
-    }
-}
-
-/*!
- * @brief     This function is EDBG USART RX IRQ Handler ,just echo characters
- *
- */
-static void FLEXCOM7_Handler (void)
-{
-    uint32_t tmp_data;
-
-    while (usart_is_rx_ready(EDBG_USART))
-    {
-        usart_getchar(EDBG_USART, &tmp_data);
-        usart_putchar(EDBG_USART, tmp_data);
-    }
-}
-
-/*!
- * @brief     This function enable usart
- *
- */
-static void edbg_usart_enable(void)
-{
-    flexcom_enable(EDBG_FLEXCOM);
-    flexcom_set_opmode(EDBG_FLEXCOM, FLEXCOM_USART);
-
-    usart_init_rs232(EDBG_USART, &usart_console_settings, sysclk_get_main_hz());
-    usart_enable_tx(EDBG_USART);
-    usart_enable_rx(EDBG_USART);
-
-    usart_enable_interrupt(EDBG_USART, US_IER_RXRDY);
-    NVIC_EnableIRQ(EDBG_FLEXCOM_IRQ);
-}
-
-/*!
- * @brief     This function regroups all the initialization specific to SAM G55
- *
- */
-static void device_specific_initialization(void)
-{
-    /* Initialize the SAM system */
-    sysclk_init();
-
-    /* execute this function before board_init */
-    i2c_pre_initialize();
-
-    /* Initialize the board */
-    board_init();
-
-    /* configure the i2c */
-    twi_initialize();
-
-    /* configures the serial port */
-    edbg_usart_enable();
-
-    /* configures the interrupt pin GPIO */
-    ioport_set_pin_dir(EXT1_PIN_GPIO_1, IOPORT_DIR_INPUT);
-    ioport_set_pin_mode(EXT1_PIN_GPIO_1, IOPORT_MODE_PULLUP);
-}
-
-
-/*!
- * @brief     printf function
- *
- * @Param[[in]      bytes_read   number of bytes to be read
- */
-static void print_read_size(u16 bytes_read)
-{
-    static uint16_t min_value = 0xFFFF;
-    static uint16_t max_value = 0;
-
-    min_value = Min(min_value, bytes_read);
-    max_value = Max(max_value, bytes_read);
-
-    sprintf(out_buffer, " Min:%04d  Current:%04d  Max:%04d\r", min_value, bytes_read, max_value);
-    usart_write_line(EDBG_USART, out_buffer);
-}
-
-/*!
- * @brief     main body function
- *
- * @retval   result for execution
- */
-int main(void)
-{
-    uint8_t        array[ARRAYSIZE];
-    uint16_t       bytes_remaining = 0;
-    uint16_t       bytes_read      = 0;
-    /* Initialize the SAM G55 system */
-    device_specific_initialization();
-
-    sprintf(out_buffer, "\n\rARRAYSIZE=%d, WATERMARK=%d\n\r", ARRAYSIZE, WATERMARK);
-    usart_write_line(EDBG_USART, out_buffer);
-
-    /* initializes the BHI160 and loads the RAM patch if */
-    /* the ram patch does not output any debug         */
-    /* information to the fifo, this demo will not work    */
-    bhy_driver_init(_bhi_fw/*, _bhi_fw_len*/);
-
-    /* wait for the interrupt pin to go down then up again */
-    while (ioport_get_pin_level(EXT1_PIN_GPIO_1))
-    {
+        DEBUG("Fail to init bhy\n");
     }
 
-    while (!ioport_get_pin_level(EXT1_PIN_GPIO_1))
-    {
-    }
+    /* wait for the bhy trigger the interrupt pin go down and up again */
+    while (ioport_get_pin_level(BHY_INT));
 
-    /* empty the fifo for a first time. the interrupt does not contain */
-    /* sensor data */
-    bhy_read_fifo(array, ARRAYSIZE, &bytes_read, &bytes_remaining);
+    while (!ioport_get_pin_level(BHY_INT));
+
+
+    bhy_read_parameter_page(BHY_PAGE_2, PAGE2_CUS_FIRMWARE_VERSION, (uint8_t*)&bhy_cus_version, sizeof(struct cus_version_t));
+    DEBUG("cus version base:%d major:%d minor:%d\n", bhy_cus_version.base, bhy_cus_version.major, bhy_cus_version.minor);
+
+    /* empty the fifo for a first time. the interrupt does not contain sensor data */
+    bhy_read_fifo(fifo, FIFO_SIZE, &bytes_read, &bytes_remaining);
 
     /* Enables a streaming sensor. The goal here is to generate data */
     /* in the fifo, not to read the sensor values. */
     bhy_enable_virtual_sensor(VS_TYPE_ROTATION_VECTOR, VS_NON_WAKEUP, FIFO_SAMPLE_RATE, REPORT_LATENCY_MS, VS_FLUSH_NONE, 0, 0);
 
     /* Sets the watermark level */
-    bhy_set_fifo_water_mark(BHY_FIFO_WATER_MARK_NON_WAKEUP, WATERMARK);
+    bhy_set_fifo_water_mark(BHY_FIFO_WATER_MARK_WAKEUP, WATERMARK);
 
     /* continuously read and parse the fifo */
     while (true)
     {
         /* wait until the interrupt fires */
-        while (!ioport_get_pin_level(EXT1_PIN_GPIO_1))
-        {
-        }
+        while (!ioport_get_pin_level(BHY_INT));
 
-        bhy_read_fifo(array, ARRAYSIZE, &bytes_read, &bytes_remaining);
-        print_read_size(bytes_read);
+        bhy_read_fifo(fifo, FIFO_SIZE, &bytes_read, &bytes_remaining);
+        
+        DEBUG("bytes_read=%d, bytes_remaining=%d\n", bytes_read, bytes_remaining);
 
         if (bytes_remaining)
         {
             /* The watermark level was set too high, it didn't manage to read */
-            usart_write_line(EDBG_USART, "\n\rThe watermark level was too low, demo stopped.");
+            DEBUG("The watermark level was too low, demo stopped.\n");
 
             /* stops the demo here */
             while(1)

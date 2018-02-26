@@ -240,12 +240,14 @@ BHY_RETURN_FUNCTION_TYPE bhy_set_sic_matrix(float * sic_matrix);
 /* sic_matrix           pointer to array of 9 floats with SIC matrix        */
 BHY_RETURN_FUNCTION_TYPE bhy_get_sic_matrix(float * sic_matrix);
 
-#if BHY_DEBUG
 /* This function outputs the debug data to function pointer. You need to    */
 /* provide a function that takes as argument a zero-terminated string and   */
 /* prints it                                                                */
 void bhy_print_debug_packet(bhy_data_debug_t *packet, void (*debug_print_ptr)(const uint8_t *));
-#endif
+
+BHY_RETURN_FUNCTION_TYPE bhy_sync_cus_evt_size(void);
+
+int8_t bhy_get_cus_evt_size(bhy_virtual_sensor_t sensor_id);
 
 
 #if BHY_CALLBACK_MODE

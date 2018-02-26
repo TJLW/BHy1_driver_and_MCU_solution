@@ -108,6 +108,11 @@
 #define VS_ID_WAKE_GESTURE                      23
 #define VS_ID_GLANCE_GESTURE                    24
 #define VS_ID_PICKUP_GESTURE                    25
+#define VS_ID_CUS1                              26
+#define VS_ID_CUS2                              27
+#define VS_ID_CUS3                              28
+#define VS_ID_CUS4                              29
+#define VS_ID_CUS5                              30
 #define VS_ID_ACTIVITY                          31
 
 #define VS_ID_ACCELEROMETER_WAKEUP                  (VS_ID_ACCELEROMETER+32)
@@ -135,11 +140,14 @@
 #define VS_ID_WAKE_GESTURE_WAKEUP                   (VS_ID_WAKE_GESTURE+32)
 #define VS_ID_GLANCE_GESTURE_WAKEUP                 (VS_ID_GLANCE_GESTURE+32)
 #define VS_ID_PICKUP_GESTURE_WAKEUP                 (VS_ID_PICKUP_GESTURE+32)
+#define VS_ID_CUS1_WAKEUP              				(VS_ID_CUS1+32)
+#define VS_ID_CUS2_WAKEUP 			                (VS_ID_CUS2+32)
+#define VS_ID_CUS3_WAKEUP           			    (VS_ID_CUS3+32)
+#define VS_ID_CUS4_WAKEUP                 			(VS_ID_CUS4+32)
+#define VS_ID_CUS5_WAKEUP                 			(VS_ID_CUS5+32)
 #define VS_ID_ACTIVITY_WAKEUP                       (VS_ID_ACTIVITY+32)
 
-#if BHY_DEBUG
 #define VS_ID_DEBUG                         245
-#endif
 #define VS_ID_TIMESTAMP_LSW_WAKEUP          246
 #define VS_ID_TIMESTAMP_MSW_WAKEUP          247
 #define VS_ID_META_EVENT_WAKEUP             248
