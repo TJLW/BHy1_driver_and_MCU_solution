@@ -191,6 +191,7 @@ void demo_sensor(void)
     if(bhy_driver_init(&bhy1_fw))
     {
         printf("Fail to init bhy\n");
+        exit(1);
     }
 
     /* wait for the bhy trigger the interrupt pin go down and up again */
