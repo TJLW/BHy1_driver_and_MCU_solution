@@ -211,7 +211,7 @@ void demo_sensor(void)
     }
 
     char value_str[3];
-    if (read(fd, value_str, 3) == -1) {
+    if (read(fd, value_str, 1) == -1) {
 		fprintf(stderr, "Failed to read value!\n");
         exit(1);
 	}
