@@ -212,7 +212,7 @@ void demo_sensor(void)
 
     char value_str[1];
     if (read(fd, value_str, 1) == -1) {
-        fprintf(stderr, "Failed to read value!\n");
+        fprintf(stderr, "Failed to read value!\r\n");
         exit(1);
 	}
 
@@ -220,23 +220,23 @@ void demo_sensor(void)
     while(!atoi(value_str)){
         printf("Waiting for BHY interrupt\r");
         if (read(fd, value_str, 1) == -1) {
-            fprintf(stderr, "Failed to read value!\n");
+            fprintf(stderr, "Failed to read value!\r\n");
             exit(1);
     	}
     }
-    printf("Got BHY interrupt.\n");
+    printf("Got BHY interrupt.\r\n");
 
 
     /* wait for the bhy to trigger the interrupt pin to go back up */
     while(atoi(value_str)){
         printf("Waiting for BHY interrupt to finish\r");
         if (read(fd, value_str, 1) == -1) {
-            fprintf(stderr, "Failed to read value!\n");
+            fprintf(stderr, "Failed to read value!\r\n");
             exit(1);
     	}
     }
 
-    printf("BHY interrupt done.\n");
+    printf("BHY interrupt done.\r\n");
 
 
 
