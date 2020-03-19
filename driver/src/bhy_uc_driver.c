@@ -162,7 +162,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_driver_init(const uint8_t *bhy_fw_data)
         bhy_initialize_support();
 
         /* downloads the ram patch to the BHy */
-        // result += bhy_initialize_from_rom(bhy_fw_data, /*bhy_fw_len*/tmp_fw_len);
+        result += bhy_initialize_from_rom(bhy_fw_data, /*bhy_fw_len*/tmp_fw_len);
 
         if (result == BHY_SUCCESS)
         {
