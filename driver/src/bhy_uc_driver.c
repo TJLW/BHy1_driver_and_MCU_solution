@@ -1,20 +1,20 @@
 /*!
   * Copyright (C) 2015 - 2016 Bosch Sensortec GmbH
-  * 
+  *
   * Redistribution and use in source and binary forms, with or without
   * modification, are permitted provided that the following conditions are met:
-  * 
+  *
   * Redistributions of source code must retain the above copyright
   * notice, this list of conditions and the following disclaimer.
-  * 
+  *
   * Redistributions in binary form must reproduce the above copyright
   * notice, this list of conditions and the following disclaimer in the
   * documentation and/or other materials provided with the distribution.
-  * 
+  *
   * Neither the name of the copyright holder nor the names of the
   * contributors may be used to endorse or promote products derived from
   * this software without specific prior written permission.
-  * 
+  *
   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
   * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
   * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -30,7 +30,7 @@
   * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
   * ANY WAY OUT OF THE USE OF THIS
   * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-  * 
+  *
   * The information provided is believed to be accurate and reliable.
   * The copyright holder assumes no responsibility
   * for the consequences of use
@@ -162,7 +162,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_driver_init(const uint8_t *bhy_fw_data)
         bhy_initialize_support();
 
         /* downloads the ram patch to the BHy */
-        result += bhy_initialize_from_rom(bhy_fw_data, /*bhy_fw_len*/tmp_fw_len);
+        // result += bhy_initialize_from_rom(bhy_fw_data, /*bhy_fw_len*/tmp_fw_len);
 
         if (result == BHY_SUCCESS)
         {
@@ -818,7 +818,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_update_system_timestamp(bhy_data_scalar_u16_t *time
 {
     static uint32_t timestamp_wakeup = 0;
     static uint32_t timestamp_nonwakeup = 0;
-    
+
     switch (timestamp_packet->sensor_id)
     {
         case VS_ID_TIMESTAMP_LSW:
