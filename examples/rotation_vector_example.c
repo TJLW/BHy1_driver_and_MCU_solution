@@ -198,6 +198,54 @@ void demo_sensor(void)
     //
     // while (!ioport_get_pin_level(BHY_INT));
 
+
+    // Open GPIO file descriptor on Linux (sysfs) - Ultra96 ZynqMP GPIO Pin A (MIO36)
+    //  Base GPIO address is 338, thus targeted GPIO is 338 + 36 = 374
+    //  OS startup scripts export this GPIO channel and will be available in /sys/class/gpio/gpio374
+    //  DIRECTION SHOULD ALREADY BE SET TO INPUT
+    int fd;
+    fd = open("/sys/class/gpio/gpio374/value", O_WRONLY);
+    if (fd == -1) {
+        perror("Unable to open /sys/class/gpio/gpio374/value");
+        exit(1);
+    }
+
+    char value_str[3];
+    if (read(fd, value_str, 3) == -1) {
+		fprintf(stderr, "Failed to read value!\n");
+        exit(1);
+	}
+
+    /* wait for the bhy to trigger the interrupt pin go down */
+    while(atoi(value_str)){
+        printf("Waiting for BHY interrupt\n");
+        if (read(fd, value_str, 3) == -1) {
+    		fprintf(stderr, "Failed to read value!\n");
+            exit(1);
+    	}
+    }
+    printf("Got BHY interrupt.\n");
+
+
+    /* wait for the bhy to trigger the interrupt pin to go back up */
+    while(!atoi(value_str)){
+        printf("Waiting for BHY interrupt to finish\n");
+        if (read(fd, value_str, 3) == -1) {
+    		fprintf(stderr, "Failed to read value!\n");
+            exit(1);
+    	}
+    }
+
+    printf("BHY interrupt done.\n");
+
+
+
+
+
+
+
+
+
     /* To get the customized version number in firmware, it is necessary to read Parameter Page 2, index 125 */
     /* to get this information. This feature is only supported for customized firmware. To get this customized */
     /* firmware, you need to contact your local FAE of Bosch Sensortec. */
