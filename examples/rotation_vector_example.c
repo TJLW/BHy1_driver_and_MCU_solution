@@ -204,7 +204,7 @@ void demo_sensor(void)
     //  OS startup scripts export this GPIO channel and will be available in /sys/class/gpio/gpio374
     //  DIRECTION SHOULD ALREADY BE SET TO INPUT
     int fd;
-    fd = open("/sys/class/gpio/gpio374/value", O_WRONLY);
+    fd = open("/sys/class/gpio/gpio374/value", O_RDONLY);
     if (fd == -1) {
         perror("Unable to open /sys/class/gpio/gpio374/value");
         exit(1);
