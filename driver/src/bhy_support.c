@@ -122,7 +122,7 @@ int8_t sensor_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size
 
     msgs[0].addr = addr;
     msgs[0].flags = 0;
-    msgs[0].len = size + 1;
+    msgs[0].len = 2;
     msgs[0].buf = outbuf;
 
     msgset[0].msgs = msgs;
