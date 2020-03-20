@@ -12,7 +12,7 @@
 
 #include <time.h>
 
-#include <i2c.h>
+#include "i2c.h"
 
 /********************************************************************************/
 /*                         EXTERN FUNCTION DECLARATIONS                         */
