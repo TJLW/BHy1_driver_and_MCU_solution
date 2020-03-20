@@ -196,90 +196,90 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 {
 
-    int bus;
-
-    /* Open i2c bus /dev/i2c-0 */
-    if ((bus = i2c_open("/dev/i2c-2")) == -1) {
-
-    	/* Error process */
-    }
-
-    I2CDevice device;
-    memset(&device, 0, sizeof(device));
-
-    /* 24C04 */
-    device.bus = bus;	/* Bus 0 */
-    device.addr = addr;	/* Slave address is 0x50, 7-bit */
-    device.iaddr_bytes = 1;	/* Device internal address is 0 byte */
-    device.page_bytes = 16; /* Device are capable of 16 bytes per page */
-
-    // char buffer[256];
+    // int bus;
     //
-    // printf("%s", i2c_get_device_desc(&device, buffer, sizeof(buffer)));
-
-
-    // unsigned char buffer[256];
-    // ssize_t size = (ssize_t)size;
-    // memset(buffer, 0, sizeof(buffer));
-
-    /* From i2c 0x0 address read 256 bytes data to buffer */
-    if ((i2c_read(&device, reg, p_buf, size)) != size) {
-
-    	/* Error process */
-    }
-
-    return 0;
-
-
-    // char *filename = "/dev/i2c-2";
-    // int i2c_fd = -1;
+    // /* Open i2c bus /dev/i2c-0 */
+    // if ((bus = i2c_open("/dev/i2c-2")) == -1) {
     //
-    // if ((i2c_fd = open(filename, O_RDWR)) < 0) {
-    //     char err[200];
-    //     sprintf(err, "open('%s') in i2c_init", filename);
-    //     perror(err);
-    //     return -1;
+    // 	/* Error process */
     // }
     //
-    // // NOTE we do not call ioctl with I2C_SLAVE here because we always use the I2C_RDWR ioctl operation to do
-    // // writes, reads, and combined write-reads. I2C_SLAVE would be used to set the I2C slave address to communicate
-    // // with. With I2C_RDWR operation, you specify the slave address every time. There is no need to use normal write()
-    // // or read() syscalls with an I2C device which does not support SMBUS protocol. I2C_RDWR is much better especially
-    // // for reading device registers which requires a write first before reading the response.
+    // I2CDevice device;
+    // memset(&device, 0, sizeof(device));
+    //
+    // /* 24C04 */
+    // device.bus = bus;	/* Bus 0 */
+    // device.addr = addr;	/* Slave address is 0x50, 7-bit */
+    // device.iaddr_bytes = 1;	/* Device internal address is 0 byte */
+    // device.page_bytes = 16; /* Device are capable of 16 bytes per page */
+    //
+    // // char buffer[256];
+    // //
+    // // printf("%s", i2c_get_device_desc(&device, buffer, sizeof(buffer)));
     //
     //
-    // int retval;
-    // u8 outbuf[1], inbuf[1];
-    // struct i2c_msg msgs[2];
-    // struct i2c_rdwr_ioctl_data msgset[1];
+    // // unsigned char buffer[256];
+    // // ssize_t size = (ssize_t)size;
+    // // memset(buffer, 0, sizeof(buffer));
     //
-    // msgs[0].addr = addr;
-    // msgs[0].flags = 0;
-    // msgs[0].len = 1;
-    // msgs[0].buf = outbuf;
+    // /* From i2c 0x0 address read 256 bytes data to buffer */
+    // if ((i2c_read(&device, reg, p_buf, size)) != size) {
     //
-    // msgs[1].addr = addr;
-    // msgs[1].flags = I2C_M_RD | I2C_M_NOSTART;
-    // msgs[1].len = size;
-    // msgs[1].buf = inbuf;
-    //
-    // msgset[0].msgs = msgs;
-    // msgset[0].nmsgs = 2;
-    //
-    // outbuf[0] = reg;
-    //
-    // inbuf[0] = 0;
-    //
-    // *p_buf = 0;
-    // if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
-    //     perror("ioctl(I2C_RDWR) in i2c_read");
-    //     close(i2c_fd);
-    //     return -1;
+    // 	/* Error process */
     // }
     //
-    // *p_buf = inbuf[0];
-    // close(i2c_fd);
     // return 0;
+
+
+    char *filename = "/dev/i2c-2";
+    int i2c_fd = -1;
+
+    if ((i2c_fd = open(filename, O_RDWR)) < 0) {
+        char err[200];
+        sprintf(err, "open('%s') in i2c_init", filename);
+        perror(err);
+        return -1;
+    }
+
+    // NOTE we do not call ioctl with I2C_SLAVE here because we always use the I2C_RDWR ioctl operation to do
+    // writes, reads, and combined write-reads. I2C_SLAVE would be used to set the I2C slave address to communicate
+    // with. With I2C_RDWR operation, you specify the slave address every time. There is no need to use normal write()
+    // or read() syscalls with an I2C device which does not support SMBUS protocol. I2C_RDWR is much better especially
+    // for reading device registers which requires a write first before reading the response.
+
+
+    int retval;
+    u8 outbuf[1], inbuf[1];
+    struct i2c_msg msgs[2];
+    struct i2c_rdwr_ioctl_data msgset[1];
+
+    msgs[0].addr = addr;
+    msgs[0].flags = 0;
+    msgs[0].len = 1;
+    msgs[0].buf = outbuf;
+
+    msgs[1].addr = addr;
+    msgs[1].flags = I2C_M_RD | I2C_M_NOSTART;
+    msgs[1].len = size;
+    msgs[1].buf = inbuf;
+
+    msgset[0].msgs = msgs;
+    msgset[0].nmsgs = 2;
+
+    outbuf[0] = reg;
+
+    inbuf[0] = 0;
+
+    *p_buf = 0;
+    if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
+        perror("ioctl(I2C_RDWR) in i2c_read");
+        close(i2c_fd);
+        return -1;
+    }
+
+    *p_buf = inbuf[0];
+    close(i2c_fd);
+    return 0;
 
 
 
