@@ -197,7 +197,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     int bus;
 
     /* Open i2c bus /dev/i2c-0 */
-    if ((bus = i2c_open("/dev/i2c-0")) == -1) {
+    if ((bus = i2c_open("/dev/i2c-2")) == -1) {
 
     	/* Error process */
     }
