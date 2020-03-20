@@ -1438,8 +1438,8 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
         }
         else if(BHY_ROM_VER_DI03 == rom_ver_exp)
         {
-            printf("ROM_VER_EXP: %x\n", rom_ver_exp)
-            printf("ROM_VERSION: %x\n", rom_version)
+            printf("ROM_VER_EXP: %x\n", rom_ver_exp);
+            printf("ROM_VERSION: %x\n", rom_version);
 
             if(BHY_ROM_VERSION_DI03 == rom_version)
             {
