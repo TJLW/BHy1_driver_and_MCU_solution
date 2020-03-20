@@ -65,9 +65,9 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 {
 
     int bus;
-    //
+
     // /* Open i2c bus /dev/i2c-0 */
-    // if ((bus = i2c_open("/dev/i2c-0")) == -1) {
+    // if ((bus = i2c_open("/dev/i2c-2")) == -1) {
     //
     // 	/* Error process */
     // }
@@ -77,20 +77,22 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     //
     // /* 24C04 */
     // device.bus = bus;	/* Bus 0 */
-    // device.addr = 0x29;	/* Slave address is 0x50, 7-bit */
-    // device.iaddr_bytes = 1;	/* Device internal address is 1 byte */
+    // device.addr = addr;
+    // device.iaddr_bytes = 1;	/* Device internal address is 0 byte */
     // device.page_bytes = 16; /* Device are capable of 16 bytes per page */
     //
     //
-    // unsigned char buffer[256];
-    // ssize_t size = sizeof(buffer);
-    // memset(buffer, 0, sizeof(buffer));
+    // // unsigned char buffer[256];
+    // // ssize_t size = (ssize_t)size;
+    // // memset(buffer, 0, sizeof(buffer));
     //
     // /* From i2c 0x0 address read 256 bytes data to buffer */
-    // if ((i2c_read(&device, 0x0, buffer, size)) != size) {
+    // if ((i2c_read(&device, reg, p_buf, size)) != size) {
     //
     // 	/* Error process */
     // }
+    //
+    // return 0;
 
 
 
@@ -207,7 +209,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
     /* 24C04 */
     device.bus = bus;	/* Bus 0 */
-    device.addr = 0x29;	/* Slave address is 0x50, 7-bit */
+    device.addr = addr;	/* Slave address is 0x50, 7-bit */
     device.iaddr_bytes = 1;	/* Device internal address is 0 byte */
     device.page_bytes = 16; /* Device are capable of 16 bytes per page */
 
