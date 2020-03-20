@@ -120,7 +120,7 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     struct i2c_rdwr_ioctl_data msgset[1];
 
     outbuf[0] = reg;
-    outbuf[1] = &p_buf;
+    outbuf[1] = *p_buf;
 
     msgs[0].addr = addr;
     msgs[0].flags = 0;
