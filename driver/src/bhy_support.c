@@ -59,20 +59,10 @@
 // Linux i2c
 #include "bosch.h"
 
-
 // #include "FreeRTOS.h"
 // #include "task.h"
 
 
-// Needed for linux i2c
-// #include <errno.h>
-// #include <stdio.h>
-// #include <string.h>
-// #include <fcntl.h>
-// #include <linux/i2c-dev.h>
-// #include <linux/i2c.h>
-//
-// #include <time.h>
 /********************************************************************************/
 /*                                STATIC VARIABLES                              */
 /********************************************************************************/
@@ -352,23 +342,8 @@ void bhy_delay_msec(uint32_t msec)
 {
     // vTaskDelay(msec);
     // sleep(msec);
-    struct timespec ts;
-    int res;
 
-    if (msec < 0)
-    {
-        errno = EINVAL;
-        return -1;
-    }
-
-    ts.tv_sec = msec / 1000;
-    ts.tv_nsec = (msec % 1000) * 1000000;
-
-    do {
-        res = nanosleep(&ts, &ts);
-    } while (res && errno == EINTR);
-
-    return res;
+    linux_delay(msec);
 
 }
 /*!
@@ -377,7 +352,8 @@ void bhy_delay_msec(uint32_t msec)
 void bhy_printf(const u8 * string)
 {
     // trace_log("%s",string);
-    printf("%s", string);
+
+    linux_printf(string)
 }
 /*!
  * @brief provides the mcu reference code version
