@@ -68,8 +68,8 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     memset(&device, 0, sizeof(device));
 
     /* 24C04 */
-    device.bus = bus;	/* Bus 0 */
-    device.addr = 0x50;	/* Slave address is 0x50, 7-bit */
+    device.bus = 0;	/* Bus 0 */
+    device.addr = 0x29;	/* Slave address is 0x50, 7-bit */
     device.iaddr_bytes = 1;	/* Device internal address is 1 byte */
     device.page_bytes = 16; /* Device are capable of 16 bytes per page */
 
