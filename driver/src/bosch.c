@@ -213,7 +213,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
 
     // unsigned char buffer[256];
-    ssize_t size = (ssize_t)size;
+    // ssize_t size = (ssize_t)size;
     // memset(buffer, 0, sizeof(buffer));
 
     /* From i2c 0x0 address read 256 bytes data to buffer */
