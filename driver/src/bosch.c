@@ -278,6 +278,12 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     }
 
     *p_buf = *inbuf;
+
+    printf("Read results:")
+    int i = 0;
+    for(i = 0; i < size; i++){
+        printf("%s", p_buf[i])
+    }
     close(i2c_fd);
     return 0;
 
