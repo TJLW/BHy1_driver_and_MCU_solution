@@ -213,13 +213,17 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     device.iaddr_bytes = 1;	/* Device internal address is 0 byte */
     device.page_bytes = 1; /* Device are capable of 16 bytes per page */
 
+    char buffer[256];
+
+    printf("%s", i2c_get_device_desc(&device, buffer, sizeof(buffer)));
+
 
     // unsigned char buffer[256];
     // ssize_t size = (ssize_t)size;
     // memset(buffer, 0, sizeof(buffer));
 
     /* From i2c 0x0 address read 256 bytes data to buffer */
-    if ((i2c_read(&device, reg, p_buf, size)) != size) {
+    if ((i2c_read(&device, 0x0, p_buf, size)) != size) {
 
     	/* Error process */
     }
