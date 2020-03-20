@@ -208,7 +208,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     /* 24C04 */
     device.bus = bus;	/* Bus 0 */
     device.addr = 0x29;	/* Slave address is 0x50, 7-bit */
-    device.iaddr_bytes = 2;	/* Device internal address is 0 byte */
+    device.iaddr_bytes = 1;	/* Device internal address is 0 byte */
     device.page_bytes = 16; /* Device are capable of 16 bytes per page */
 
 
