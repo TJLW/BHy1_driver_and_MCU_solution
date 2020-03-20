@@ -353,7 +353,7 @@ void bhy_printf(const u8 * string)
 {
     // trace_log("%s",string);
 
-    linux_printf(string)
+    linux_printf(string);
 }
 /*!
  * @brief provides the mcu reference code version

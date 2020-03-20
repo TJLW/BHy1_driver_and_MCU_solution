@@ -1,3 +1,7 @@
+#include "bhy_support.h"
+#include "bhy_uc_driver_config.h"
+#include "bosch.h"
+
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -284,7 +288,7 @@ void linux_delay(uint32_t msec)
 
 void bhy_printf(const u8 * string)
 {
-    printf("%s", string)
+    printf("%s", string);
 }
 
 
