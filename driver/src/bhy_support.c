@@ -76,12 +76,12 @@ static uint8_t *version = BHY_MCU_REFERENCE_VERSION;
 // extern int8_t sensor_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size);
 // extern void trace_log(const char *fmt, ...);
 
-static int8_t sensor_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
+int8_t sensor_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 {
     return linux_i2c_write(addr, reg, p_buf, size) == 0 ? BHY_SUCCESS : BHY_ERROR;
 }
 
-static int8_t sensor_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
+int8_t sensor_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 {
     return linux_i2c_read(addr, reg, p_buf, size) == 0 ? BHY_SUCCESS : BHY_ERROR;
 }
