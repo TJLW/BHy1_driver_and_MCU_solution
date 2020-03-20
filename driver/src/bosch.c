@@ -264,7 +264,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     msgs[1].addr = addr;
     msgs[1].flags = I2C_M_RD | I2C_M_NOSTART;
     msgs[1].len = size;
-    msgs[1].buf = *p_buf;
+    msgs[1].buf = p_buf;
 
     msgset[0].msgs = msgs;
     msgset[0].nmsgs = 2;
@@ -287,7 +287,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     }
 
 
-    *p_buf = *inbuf;
+    // *p_buf = *inbuf;
 
     printf("P_BUF results:\r\n");
     // int i = 0;
