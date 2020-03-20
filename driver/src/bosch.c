@@ -120,7 +120,7 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     struct i2c_rdwr_ioctl_data msgset[1];
 
     outbuf[0] = reg;
-    outbuf[1] = p_buf;
+    outbuf[1] = &p_buf;
 
     msgs[0].addr = addr;
     msgs[0].flags = 0;
@@ -270,30 +270,18 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     msgset[0].nmsgs = 2;
 
 
-
-
-    // *p_buf = 0;
     if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
         perror("ioctl(I2C_RDWR) in i2c_read");
         close(i2c_fd);
         return -1;
     }
 
-
-    printf("INBUF results:\r\n");
-    // int i = 0;
-    for(int i = 0; i < size; i++){
-        printf("%x\r\n", inbuf[i]);
-    }
-
-
-    // *p_buf = *inbuf;
-
     printf("P_BUF results:\r\n");
-    // int i = 0;
     for(int i = 0; i < size; i++){
         printf("%x\r\n", p_buf[i]);
     }
+
+
     close(i2c_fd);
     return 0;
 
