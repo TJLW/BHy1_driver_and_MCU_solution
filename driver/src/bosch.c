@@ -286,7 +286,7 @@ void linux_delay(uint32_t msec)
     return res;
 }
 
-void bhy_printf(const u8 * string)
+void linux_printf(const u8 * string)
 {
     printf("%s", string);
 }
