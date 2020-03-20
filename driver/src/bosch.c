@@ -272,7 +272,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
 
 
-    *p_buf = 0;
+    // *p_buf = 0;
     if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
         perror("ioctl(I2C_RDWR) in i2c_read");
         close(i2c_fd);
