@@ -249,7 +249,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
 
     int retval;
-    u8 outbuf[1], inbuf[1];
+    u8 outbuf[1], inbuf[size];
     struct i2c_msg msgs[2];
     struct i2c_rdwr_ioctl_data msgset[1];
 
@@ -277,7 +277,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
         return -1;
     }
 
-    *p_buf = inbuf[0];
+    *p_buf = *inbuf;
     close(i2c_fd);
     return 0;
 
