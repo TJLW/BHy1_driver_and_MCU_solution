@@ -254,8 +254,6 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     struct i2c_rdwr_ioctl_data msgset[1];
 
     outbuf[0] = reg;
-
-    // inbuf[0] = 0;
     memset(inbuf, 0, sizeof(inbuf));
 
     msgs[0].addr = addr;
@@ -264,13 +262,12 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     msgs[0].buf = outbuf;
 
     msgs[1].addr = addr;
-    msgs[1].flags = I2C_M_RD;
-    msgs[1].len = size;
+    msgs[1].flags = I2C_M_RD | I2C_M_NOSTART;
+    msgs[1].len = 1;
     msgs[1].buf = inbuf;
 
     msgset[0].msgs = msgs;
     msgset[0].nmsgs = 2;
-
 
 
 
