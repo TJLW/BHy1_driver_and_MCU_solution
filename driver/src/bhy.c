@@ -13,18 +13,18 @@
 ****************************************************************************
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are met:
-* 
+*
 * Redistributions of source code must retain the above copyright
 * notice, this list of conditions and the following disclaimer.
-* 
+*
 * Redistributions in binary form must reproduce the above copyright
 * notice, this list of conditions and the following disclaimer in the
 * documentation and/or other materials provided with the distribution.
-* 
+*
 * Neither the name of the copyright holder nor the names of the
 * contributors may be used to endorse or promote products derived from
 * this software without specific prior written permission.
-* 
+*
 * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
 * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -40,7 +40,7 @@
 * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 * ANY WAY OUT OF THE USE OF THIS
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-* 
+*
 * The information provided is believed to be accurate and reliable.
 * The copyright holder assumes no responsibility
 * for the consequences of use
@@ -1438,6 +1438,9 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
         }
         else if(BHY_ROM_VER_DI03 == rom_ver_exp)
         {
+            printf("ROM_VER_EXP: %x\n", rom_ver_exp)
+            printf("ROM_VERSION: %x\n", rom_version)
+
             if(BHY_ROM_VERSION_DI03 == rom_version)
             {
                 com_rslt = BHY_SUCCESS;
