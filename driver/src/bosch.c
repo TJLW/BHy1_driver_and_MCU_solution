@@ -187,13 +187,16 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
 
     int retval;
-    u8 outbuf[2];
+    u8 outbuf[1 + size];
 
     struct i2c_msg msgs[1];
     struct i2c_rdwr_ioctl_data msgset[1];
 
     outbuf[0] = reg;
-    outbuf[1] = *p_buf;
+
+    for(int i = 0; i < size){
+        outbuf[1 + i] = p_buf[i];
+    }
 
     msgs[0].addr = addr;
     msgs[0].flags = 0;
@@ -205,17 +208,17 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
     printf("Writing data %i bytes to register %x:\r\n\t", size, reg);
 
-    if(size < 8)
-    {
-        printf("%02x", p_buf[0]);
-    }
-    else
-    {
-        for(int i = 0; i < size/8; i = i + 1)
+    // if(size < 8)
+    // {
+    //     printf("%02x", p_buf[0]);
+    // }
+    // else
+    // {
+        for(int i = 0; i < size; i = i + 1)
         {
             printf("%02x", p_buf[i]);
         }
-    }   
+    // }
     printf("\r\n");
 
     if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
