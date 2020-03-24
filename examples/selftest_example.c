@@ -158,10 +158,10 @@ void demo_sensor(void)
 
 	bhy_set_chip_control(0);
 	bhy_set_host_interface_control(BHY_HOST_SELFTEST, 1); // ENABLE = 1
-	delay_ms(100);
+	linux_delay(100);
 
 	bhy_set_chip_control(1);
-	delay_ms(100);
+	linux_delay(100);
 
     while(1)
     {
