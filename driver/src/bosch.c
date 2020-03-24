@@ -56,7 +56,7 @@ int8_t ioport_get_pin_level(int gpio_pin)
 
     fd = open(gpio_pin_sysfs_entry, O_RDONLY);
     if (fd == -1) {
-        perror("Unable to open %s", gpio_pin_sysfs_entry);
+        fprintf(stderr, "Failed to open gpio fd!\r\n");
         exit(1);
     }
 
