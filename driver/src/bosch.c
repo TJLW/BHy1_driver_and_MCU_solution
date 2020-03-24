@@ -14,6 +14,34 @@
 
 #include "i2c.h"
 
+
+
+
+
+
+
+
+
+// Notes:
+//     Manual BHI160 reset - Set bit 0 to '1' at register address 0x9B
+//         sudo i2cset 0 0x29 0x9B 0x1
+//
+//         Chip_Control register 0x34 will be set low indicating upload disabled and CPU not running
+//         Host_Status register 0x35 will have bit 0 set to '1' after manual reset or power cycle
+//         Chip_Status register 0x37 will have bits 3,4 set to '1', Firmware idle and no EEPROM, respectively
+//         Product_ID register 0x90 will be set to 0x83 - FUSER1_C2, BHI160 - static
+//         Revision_ID register 0x91 will be set to 0x01 - FUSER1_C2, BHI160 - static?
+//         Upload_CRC registers 0x97-0x9A will be set high indicating no firmware upload
+//
+
+
+
+
+
+
+
+
+
 /********************************************************************************/
 /*                         EXTERN FUNCTION DECLARATIONS                         */
 /********************************************************************************/

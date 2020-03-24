@@ -159,7 +159,12 @@ BHY_RETURN_FUNCTION_TYPE bhy_driver_init(const uint8_t *bhy_fw_data)
     /* retry BHY_INIT_RETRY_COUNT times to avoid firmware download fail*/
     while (init_retry_count > 0)
     {
-        bhy_initialize_support();
+        result = bhy_initialize_support();
+
+        if (result == BHY_SUCCESS)
+        {
+            printf("BHY_SUPPORT Initialized");
+        }
 
         /* downloads the ram patch to the BHy */
         result += bhy_initialize_from_rom(bhy_fw_data, /*bhy_fw_len*/tmp_fw_len);
