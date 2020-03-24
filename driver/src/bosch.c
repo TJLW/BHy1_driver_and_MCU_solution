@@ -56,7 +56,7 @@ int8_t ioport_get_pin_level(int gpio_pin)
     strcpy(gpio_pin_sysfs_entry, gpio_pin_c);
     strcpy(gpio_pin_sysfs_entry, "/value");
 
-    printf("%s", pio_pin_sysfs_entry);
+    printf("%s", gpio_pin_sysfs_entry);
 
     int fd;
 
