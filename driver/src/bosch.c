@@ -206,7 +206,7 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     printf("Writing data %i bytes to register %x:\r\n\t", size, reg);
     for(int i = 0; i < size/8; i = i + 1)
     {
-        printf("%x", size, reg, p_buf[i]);
+        printf("%x", p_buf[i]);
     }
     printf("\r\n");
 
