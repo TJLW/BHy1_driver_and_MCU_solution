@@ -40,16 +40,23 @@ int8_t ioport_get_pin_level(int gpio_pin)
     //  DIRECTION SHOULD ALREADY BE SET TO INPUT
 
     int gpio_base = 338;
-    char gpio_pin_c[2];
-    itoa(base + gpio_pin, snum, 10);
-    char * gpio_pin_sysfs_entry = "/sys/class/gpio/gpio" + gpio_pin_c + "/value";
+    char gpio_pin_c[3];
+    itoa(gpio_base + gpio_pin, gpio_pin_c, 10);
 
+
+    // char * gpio_pin_sysfs = "/sys/class/gpio/gpio" + gpio_pin_c + "/value";
+
+    char* gpio_pin_sysfs_entry;
+    gpio_pin_sysfs_entry = malloc(strlen("/sys/class/gpio/gpio") + 3 + strlen("/value"));
+    strcpy(gpio_pin_sysfs_entry, "/sys/class/gpio/gpio");
+    strcpy(gpio_pin_sysfs_entry, gpio_pin_c);
+    strcpy(gpio_pin_sysfs_entry, "/value");
 
     int fd;
 
     fd = open(gpio_pin_sysfs_entry, O_RDONLY);
     if (fd == -1) {
-        perror("Unable to open " + gpio_pin_sysfs_entry);
+        perror("Unable to open %s", gpio_pin_sysfs_entry);
         exit(1);
     }
 
