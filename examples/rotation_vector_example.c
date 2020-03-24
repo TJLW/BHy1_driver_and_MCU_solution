@@ -59,7 +59,9 @@
 
 #include "bhy_support.h"
 #include "bhy_uc_driver.h"
-#include "./firmware/Bosch_PCB_7183_di03_BMI160_BMM150-7183_di03.2.1.11696_170103.h"
+// #include "./firmware/Bosch_PCB_7183_di03_BMI160_BMM150-7183_di03.2.1.11696_170103.h"
+#include "./firmware/Bosch_PCB_7183_di01_BMI160-7183_di01.2.1.10836_170103.h"
+
 
 
 #include <math.h>
