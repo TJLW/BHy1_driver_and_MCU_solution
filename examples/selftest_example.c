@@ -89,25 +89,25 @@ uint8_t fifo[FIFO_SIZE];
 static void meta_event_callback(bhy_data_meta_event_t *event_data, bhy_meta_event_type_t event_type)
 {
 
-    DEBUG(">Meta event type %d,  \n", event_type);
+    printf(">Meta event type %d,  \n", event_type);
 
     switch(event_type)
     {
         case BHY_META_EVENT_TYPE_INITIALIZED:
-            DEBUG("initialize success!\n");
+            printf("initialize success!\n");
             break;
         case BHY_META_EVENT_TYPE_SELF_TEST_RESULTS:
             if(event_data->event_specific == BHY_SUCCESS)
             {
-                DEBUG("self test result success!  sensor_type=%d \n", event_data->sensor_type);
+                printf("self test result success!  sensor_type=%d \n", event_data->sensor_type);
             }
             else
             {
-                DEBUG("self test result fail!  sensor_type=%d  \n", event_data->sensor_type);
+                printf("self test result fail!  sensor_type=%d  \n", event_data->sensor_type);
             }
             break;
         default:
-            DEBUG("unknown meta event\n");
+            printf("unknown meta event\n");
             break;
     }
 }
@@ -136,13 +136,13 @@ void demo_sensor(void)
     bhy_install_meta_event_callback(BHY_META_EVENT_TYPE_INITIALIZED, meta_event_callback);
     bhy_install_meta_event_callback(BHY_META_EVENT_TYPE_SELF_TEST_RESULTS, meta_event_callback);
 
-    DEBUG("version=%s, %s, %s\n", bhy_get_version(), __DATE__, __TIME__);
-    DEBUG("start example\n");
+    printf("version=%s, %s, %s\n", bhy_get_version(), __DATE__, __TIME__);
+    printf("start example\n");
 
     /* init the bhy chip */
     if(bhy_driver_init(&bhy1_fw))
     {
-        DEBUG("Fail to init bhy\n");
+        printf("Fail to init bhy\n");
         // exit(1);
     }
 
@@ -154,7 +154,7 @@ void demo_sensor(void)
     /* to get this information. This feature is only supported for customized firmware. To get this customized */
     /* firmware, you need to contact your local FAE of Bosch Sensortec. */
     //bhy_read_parameter_page(BHY_PAGE_2, PAGE2_CUS_FIRMWARE_VERSION, (uint8_t*)&bhy_cus_version, sizeof(struct cus_version_t));
-    //DEBUG("cus version base:%d major:%d minor:%d\n", bhy_cus_version.base, bhy_cus_version.major, bhy_cus_version.minor);
+    //printf("cus version base:%d major:%d minor:%d\n", bhy_cus_version.base, bhy_cus_version.major, bhy_cus_version.minor);
 
 	bhy_set_chip_control(0);
 	bhy_set_host_interface_control(BHY_HOST_SELFTEST, 1); // ENABLE = 1
