@@ -146,6 +146,12 @@ int open_i2c_device()
     }
 
     return i2c_fd;
+
+    // NOTE we do not call ioctl with I2C_SLAVE here because we always use the I2C_RDWR ioctl operation to do
+    // writes, reads, and combined write-reads. I2C_SLAVE would be used to set the I2C slave address to communicate
+    // with. With I2C_RDWR operation, you specify the slave address every time. There is no need to use normal write()
+    // or read() syscalls with an I2C device which does not support SMBUS protocol. I2C_RDWR is much better especially
+    // for reading device registers which requires a write first before reading the response.
 }
 
 void close_i2c_device()
@@ -195,7 +201,7 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
 
     // char *filename = "/dev/i2c-2";
-    int i2c_fd = open_i2c_device();
+    // int i2c_fd = open_i2c_device();
 
     // if ((i2c_fd = open(filename, O_RDWR)) < 0) {
     //     char err[200];
@@ -329,15 +335,15 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     // return 0;
 
 
-    char *filename = "/dev/i2c-2";
-    int i2c_fd = -1;
-
-    if ((i2c_fd = open(filename, O_RDWR)) < 0) {
-        char err[200];
-        sprintf(err, "open('%s') in i2c_init", filename);
-        perror(err);
-        return -1;
-    }
+    // char *filename = "/dev/i2c-2";
+    // int i2c_fd = -1;
+    //
+    // if ((i2c_fd = open(filename, O_RDWR)) < 0) {
+    //     char err[200];
+    //     sprintf(err, "open('%s') in i2c_init", filename);
+    //     perror(err);
+    //     return -1;
+    // }
 
     // NOTE we do not call ioctl with I2C_SLAVE here because we always use the I2C_RDWR ioctl operation to do
     // writes, reads, and combined write-reads. I2C_SLAVE would be used to set the I2C slave address to communicate
@@ -380,7 +386,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     }
 
 
-    close(i2c_fd);
+    // close(i2c_fd);
     return 0;
 
 
