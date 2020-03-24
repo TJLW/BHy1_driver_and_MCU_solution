@@ -13,6 +13,7 @@
 #include <time.h>
 
 #include "i2c.h"
+#include <string>
 
 /********************************************************************************/
 /*                         EXTERN FUNCTION DECLARATIONS                         */
@@ -40,7 +41,9 @@ int8_t ioport_get_pin_level(int gpio_pin)
     //  DIRECTION SHOULD ALREADY BE SET TO INPUT
 
     int gpio_base = 338;
-    string gpio_pin_sysfs_entry = "/sys/class/gpio/gpio" + to_string(base + gpio_pin) + "/value";
+    char gpio_pin_c[2];
+    itoa(base + gpio_pin, snum, 10);
+    char * gpio_pin_sysfs_entry = "/sys/class/gpio/gpio" + gpio_pin_c + "/value";
 
 
     int fd;
