@@ -3,6 +3,15 @@
 
 #include <stdint.h>
 
+
+
+#define BHY_INT 36
+
+
+
+int8_t ioport_get_pin_level(int gpio_pin);
+
+
 int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size);
 int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size);
 void linux_delay(uint32_t msec);

@@ -28,6 +28,42 @@ static void hexdump(uint8_t *data, uint8_t len)
 }
 #endif
 
+
+
+// This only supports PS-GPIO as the sensor mezzanine only requres these header pins
+int8_t ioport_get_pin_level(int gpio_pin)
+{
+    // Open GPIO file descriptor on Linux (sysfs) - Ultra96 ZynqMP PS-GPIO
+    //  Base GPIO address is 338, thus targeted GPIO is 338 + gpio_pin = 374
+    //  OS startup script (rc.local) exports these GPIO channels and will be
+    //  available in /sys/class/gpio/gpio374
+    //  DIRECTION SHOULD ALREADY BE SET TO INPUT
+
+    int gpio_base = 338;
+    string gpio_pin_sysfs_entry = "/sys/class/gpio/gpio" + to_string(base + gpio_pin) + "/value";
+
+
+    int fd;
+
+    fd = open(gpio_pin_sysfs_entry, O_RDONLY);
+    if (fd == -1) {
+        perror("Unable to open " + gpio_pin_sysfs_entry);
+        exit(1);
+    }
+
+    char value_str[1];
+    if (read(fd, value_str, 3) == -1) {
+        fprintf(stderr, "Failed to read gpio value!\r\n");
+        exit(1);
+	}
+
+    close(fd);
+    return atoi(value_str);
+}
+
+
+
+
 // int8_t bosch_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 // {
 //     uint8_t buf[size + 1];

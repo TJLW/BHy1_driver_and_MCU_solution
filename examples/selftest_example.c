@@ -1,20 +1,20 @@
 /*!
   * Copyright (C) 2015 - 2016 Bosch Sensortec GmbH
-  * 
+  *
   * Redistribution and use in source and binary forms, with or without
   * modification, are permitted provided that the following conditions are met:
-  * 
+  *
   * Redistributions of source code must retain the above copyright
   * notice, this list of conditions and the following disclaimer.
-  * 
+  *
   * Redistributions in binary form must reproduce the above copyright
   * notice, this list of conditions and the following disclaimer in the
   * documentation and/or other materials provided with the distribution.
-  * 
+  *
   * Neither the name of the copyright holder nor the names of the
   * contributors may be used to endorse or promote products derived from
   * this software without specific prior written permission.
-  * 
+  *
   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
   * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
   * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -30,7 +30,7 @@
   * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
   * ANY WAY OUT OF THE USE OF THIS
   * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-  * 
+  *
   * The information provided is believed to be accurate and reliable.
   * The copyright holder assumes no responsibility
   * for the consequences of use
@@ -48,14 +48,19 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include "asf.h"
-#include "task.h"
-#include "arm_math.h"
-#include "demo-tasks.h"
+// #include "asf.h"
+// #include "task.h"
+// #include "arm_math.h"
+// #include "demo-tasks.h"
+
 
 #include "bhy_support.h"
 #include "bhy_uc_driver.h"
-#include ".\firmware\Bosch_PCB_7183_di01_BMI160-7183_di01.2.1.10836_170103.h"
+// #include ".\firmware\Bosch_PCB_7183_di01_BMI160-7183_di01.2.1.10836_170103.h"
+#include "./firmware/Bosch_PCB_7183_di01_BMI160-7183_di01.2.1.10836_170103.h"
+
+#include <math.h>
+#include "bosch.h"
 
 
 /********************************************************************************/
@@ -138,6 +143,7 @@ void demo_sensor(void)
     if(bhy_driver_init(&bhy1_fw))
     {
         DEBUG("Fail to init bhy\n");
+        exit(1);
     }
 
     /* wait for the bhy trigger the interrupt pin go down and up again */
@@ -153,10 +159,10 @@ void demo_sensor(void)
 	bhy_set_chip_control(0);
 	bhy_set_host_interface_control(BHY_HOST_SELFTEST, ENABLE);
 	delay_ms(100);
-	
+
 	bhy_set_chip_control(1);
 	delay_ms(100);
-	
+
     while(1)
     {
         /* wait until the interrupt fires */
@@ -180,7 +186,7 @@ void demo_sensor(void)
             {
                 bhy_print_debug_packet(&fifo_packet.data_debug, bhy_printf);
             }
-            
+
             /* the logic here is that if doing a partial parsing of the fifo, then we should not parse  */
             /* the last 18 bytes (max length of a packet) so that we don't try to parse an incomplete   */
             /* packet */
