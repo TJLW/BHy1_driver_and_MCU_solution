@@ -203,7 +203,7 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     msgset[0].msgs = msgs;
     msgset[0].nmsgs = 1;
 
-    printf("Writing data to register %x\r\n", reg);
+    printf("Writing data %i bytes to register %x\r\n\t%x", size, reg, p_buf);
 
     if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
         perror("ioctl(I2C_RDWR) in i2c_write");
@@ -345,7 +345,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     msgset[0].nmsgs = 2;
 
 
-    printf("Reading data from register %x\r\n", reg);
+    printf("Reading %i bytes from register %x\r\n", size, reg);
 
     if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
         perror("ioctl(I2C_RDWR) in i2c_read");
