@@ -235,35 +235,9 @@ void demo_sensor(void)
     {
         /* wait until the interrupt fires */
         /* unless we already know there are bytes remaining in the fifo */
-        // while (!ioport_get_pin_level(BHY_INT) && !bytes_remaining)
-        // {
-        // }
-
-        int fd;
-        fd = open("/sys/class/gpio/gpio374/value", O_RDONLY);
-        if (fd == -1) {
-            perror("Unable to open /sys/class/gpio/gpio374/value");
-            exit(1);
+        while (!ioport_get_pin_level(BHY_INT) && !bytes_remaining)
+        {
         }
-
-        char value_str[1];
-        if (read(fd, value_str, 1) == -1) {
-            fprintf(stderr, "Failed to read value!\r\n");
-            exit(1);
-    	}
-
-        /* wait for the bhy to trigger the interrupt pin go down */
-        while(atoi(value_str)){
-            printf("Waiting for BHY interrupt\r\n");
-            if (read(fd, value_str, 1) == -1) {
-                fprintf(stderr, "Failed to read value!\r\n");
-                exit(1);
-        	}
-        }
-        printf("Got BHY interrupt.\r\n");
-        close(fd);
-
-
 
 
         bhy_read_fifo(fifo + bytes_left_in_fifo, FIFO_SIZE - bytes_left_in_fifo, &bytes_read, &bytes_remaining);
