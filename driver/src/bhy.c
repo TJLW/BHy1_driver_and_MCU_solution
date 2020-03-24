@@ -1424,6 +1424,10 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
         signature_flag = data_from_mem[BHY_SIG_FLAG_1_POS] + ((u16)data_from_mem[BHY_SIG_FLAG_2_POS]<<8);
         rom_ver_exp = BHY_GET_ROMVEREXP (signature_flag);
         bhy_get_rom_version(&rom_version);
+
+        printf("ROM_VER_EXP: %x\n", rom_ver_exp);
+        printf("ROM_VERSION: %x\n", rom_version);
+
         if(BHY_ROM_VER_DI01 == rom_ver_exp)
         {
             if(BHY_ROM_VERSION_DI01 == rom_version)
@@ -1438,9 +1442,6 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
         }
         else if(BHY_ROM_VER_DI03 == rom_ver_exp)
         {
-            printf("ROM_VER_EXP: %x\n", rom_ver_exp);
-            printf("ROM_VERSION: %x\n", rom_version);
-
             if(BHY_ROM_VERSION_DI03 == rom_version)
             {
                 com_rslt = BHY_SUCCESS;
