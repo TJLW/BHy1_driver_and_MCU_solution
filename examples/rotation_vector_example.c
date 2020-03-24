@@ -199,57 +199,10 @@ void demo_sensor(void)
 
     /* wait for the bhy trigger the interrupt pin go down and up again */
     while (ioport_get_pin_level(BHY_INT));
+    printf("Got bhy interrupt\n");
 
     while (!ioport_get_pin_level(BHY_INT));
-
-
-    // // Open GPIO file descriptor on Linux (sysfs) - Ultra96 ZynqMP GPIO Pin A (MIO36)
-    // //  Base GPIO address is 338, thus targeted GPIO is 338 + 36 = 374
-    // //  OS startup scripts export this GPIO channel and will be available in /sys/class/gpio/gpio374
-    // //  DIRECTION SHOULD ALREADY BE SET TO INPUT
-    // int fd;
-    // fd = open("/sys/class/gpio/gpio374/value", O_RDONLY);
-    // if (fd == -1) {
-    //     perror("Unable to open /sys/class/gpio/gpio374/value");
-    //     exit(1);
-    // }
-    //
-    // char value_str[1];
-    // if (read(fd, value_str, 3) == -1) {
-    //     fprintf(stderr, "Failed to read value!\r\n");
-    //     exit(1);
-	// }
-    //
-    // /* wait for the bhy to trigger the interrupt pin go down */
-    // while(atoi(value_str)){
-    //     printf("Waiting for BHY interrupt\r");
-    //     if (read(fd, value_str, 3) == -1) {
-    //         fprintf(stderr, "Failed to read value!\r\n");
-    //         exit(1);
-    // 	}
-    // }
-    // printf("Got BHY interrupt.\n\r\n");
-    //
-    //
-    // /* wait for the bhy to trigger the interrupt pin to go back up */
-    // while(!atoi(value_str)){
-    //     printf("Waiting for BHY interrupt to finish\r");
-    //     if (read(fd, value_str, 3) == -1) {
-    //         fprintf(stderr, "Failed to read value!\r\n");
-    //         exit(1);
-    // 	}
-    // }
-    //
-    // printf("BHY interrupt done.\n\r\n");
-    //
-    // close(fd);
-
-
-
-
-
-
-
+    printf("Got bhy interrupt reset\n");
 
 
     /* To get the customized version number in firmware, it is necessary to read Parameter Page 2, index 125 */

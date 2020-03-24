@@ -40,14 +40,9 @@ int8_t ioport_get_pin_level(int gpio_pin)
     //  DIRECTION SHOULD ALREADY BE SET TO INPUT
 
     int gpio = 338 + gpio_pin;
+
     char gpio_pin_c[4];
-
     snprintf(gpio_pin_c, 4, "%d" , gpio);
-
-    printf("%u\r\n", gpio_pin_c);
-
-
-    // char * gpio_pin_sysfs = "/sys/class/gpio/gpio" + gpio_pin_c + "/value";
 
     char* gpio_pin_sysfs_entry;
     gpio_pin_sysfs_entry = malloc(strlen("/sys/class/gpio/gpio") + 3 + strlen("/value"));
@@ -55,7 +50,7 @@ int8_t ioport_get_pin_level(int gpio_pin)
     strcat(gpio_pin_sysfs_entry, gpio_pin_c);
     strcat(gpio_pin_sysfs_entry, "/value");
 
-    printf("%s\r\n", gpio_pin_sysfs_entry);
+    // printf("%s\r\n", gpio_pin_sysfs_entry);
 
     int fd;
 
@@ -326,10 +321,10 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
         return -1;
     }
 
-    printf("P_BUF results:\r\n");
-    for(int i = 0; i < size; i++){
-        printf("%x\r\n", p_buf[i]);
-    }
+    // printf("P_BUF results:\r\n");
+    // for(int i = 0; i < size; i++){
+    //     printf("%x\r\n", p_buf[i]);
+    // }
 
 
     close(i2c_fd);
