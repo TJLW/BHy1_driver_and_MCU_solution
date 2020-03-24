@@ -1436,6 +1436,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
             }
             else
             {
+                printf("BHY_RAMPATCH_NOT_MATCH - DI01")
                 com_rslt = BHY_RAMPATCH_NOT_MATCH;
                 goto bhy_init_from_rom_return;
             }
