@@ -194,7 +194,7 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
     outbuf[0] = reg;
 
-    for(int i = 0; i < size){
+    for(int i = 0; i < size; i = i + 1){
         outbuf[1 + i] = p_buf[i];
     }
 
