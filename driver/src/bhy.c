@@ -1531,7 +1531,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
         }
         else
         {
-            printf("BHY_CRC_ERROR\r\n");
+            printf("BHY_CRC_ERROR, expected: %x\r\n", v_crc_from_memory_u32);
             com_rslt = BHY_CRC_ERROR;
             goto bhy_init_from_rom_return;
         }
