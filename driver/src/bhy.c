@@ -1513,7 +1513,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
                 }
 
 				if(packet_length != 0)
-                    printf("Writing data to upload data register\r\n");
+
 
                     com_rslt += bhy_write_reg(BHY_I2C_REG_UPLOAD_DATA_ADDR,data_byte,packet_length * BHY_RAM_WRITE_LENGTH);
 
