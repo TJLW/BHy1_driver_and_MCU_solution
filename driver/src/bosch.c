@@ -203,7 +203,12 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     msgset[0].msgs = msgs;
     msgset[0].nmsgs = 1;
 
-    printf("Writing data %i bytes to register %x\r\n\t%x", size, reg, p_buf);
+    printf("Writing data %i bytes to register %x:\r\n\t", size, reg);
+    for(int i = 0; i < size/8; i = i + 1)
+    {
+        printf("%x", size, reg, p_buf[i]);
+    }
+    printf("\r\n");
 
     if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
         perror("ioctl(I2C_RDWR) in i2c_write");
