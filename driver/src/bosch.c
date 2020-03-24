@@ -41,7 +41,9 @@ int8_t ioport_get_pin_level(int gpio_pin)
 
     int gpio_base = 338;
     char gpio_pin_c[3];
-    itoa(gpio_base + gpio_pin, gpio_pin_c, 10);
+
+    snprintf(gpio_pin_c, 3, "%d" , gpio_base + gpio_pin);
+    // itoa(gpio_base + gpio_pin, gpio_pin_c, 10);
 
 
     // char * gpio_pin_sysfs = "/sys/class/gpio/gpio" + gpio_pin_c + "/value";
