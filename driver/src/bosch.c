@@ -206,20 +206,12 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     msgset[0].msgs = msgs;
     msgset[0].nmsgs = 1;
 
-    printf("Writing data %i bytes to register %x:\r\n\t", size, reg);
-
-    // if(size < 8)
+    // printf("Writing data %i bytes to register %x:\r\n\t", size, reg);
+    // for(int i = 0; i < size; i = i + 1)
     // {
-    //     printf("%02x", p_buf[0]);
+    //     printf("%02x", p_buf[i]);
     // }
-    // else
-    // {
-        for(int i = 0; i < size; i = i + 1)
-        {
-            printf("%02x", p_buf[i]);
-        }
-    // }
-    printf("\r\n");
+    // printf("\r\n");
 
     if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
         perror("ioctl(I2C_RDWR) in i2c_write");
@@ -361,7 +353,7 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
     msgset[0].nmsgs = 2;
 
 
-    printf("Reading %i bytes from register %x\r\n", size, reg);
+    // printf("Reading %i bytes from register %x\r\n", size, reg);
 
     if (ioctl(i2c_fd, I2C_RDWR, &msgset) < 0) {
         perror("ioctl(I2C_RDWR) in i2c_read");
@@ -369,10 +361,10 @@ int8_t linux_i2c_read(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
         return -1;
     }
 
-    printf("P_BUF results:\r\n");
-    for(int i = 0; i < size; i++){
-        printf("%x\r\n", p_buf[i]);
-    }
+    // printf("P_BUF results:\r\n");
+    // for(int i = 0; i < size; i++){
+    //     printf("%x\r\n", p_buf[i]);
+    // }
 
 
     close(i2c_fd);
