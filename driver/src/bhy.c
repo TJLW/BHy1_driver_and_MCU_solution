@@ -1436,7 +1436,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
             }
             else
             {
-                printf("BHY_RAMPATCH_NOT_MATCH - DI01");
+                printf("BHY_RAMPATCH_NOT_MATCH - DI01\r\n");
                 com_rslt = BHY_RAMPATCH_NOT_MATCH;
                 goto bhy_init_from_rom_return;
             }
@@ -1449,7 +1449,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
             }
             else
             {
-                printf("BHY_RAMPATCH_NOT_MATCH - DI03");
+                printf("BHY_RAMPATCH_NOT_MATCH - DI03\r\n");
 
                 com_rslt = BHY_RAMPATCH_NOT_MATCH;
                 goto bhy_init_from_rom_return;
@@ -1457,7 +1457,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
         }
         else
         {
-            printf("BHY_RAMPATCH_NOT_SUPPORT");
+            printf("BHY_RAMPATCH_NOT_SUPPORT\r\n");
 
             com_rslt = BHY_RAMPATCH_NOT_SUPPORT;
             goto bhy_init_from_rom_return;
@@ -1475,15 +1475,15 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
         data_to_process = v_file_length_u32 - BHY_SIGNATURE_LENGTH;
 
         /* set the reset as 0x01*/
-        printf("Setting reset request register high");
+        printf("Setting reset request register high\r\n");
         com_rslt = bhy_set_reset_request(BHY_RESET_ENABLE);
 
         /* write the chip control register as 0x02*/
-        printf("Setting chip control register to 0x02 (HOST_UPLOAD_ENABLE)");
+        printf("Setting chip control register to 0x02 (HOST_UPLOAD_ENABLE)\r\n");
         com_rslt += bhy_write_reg(BHY_I2C_REG_CHIP_CONTROL_ADDR, &v_chip_control_u8, BHY_GEN_READ_WRITE_LENGTH);
 
         /* set the upload data*/
-        printf("Setting upload address registers to 0x00");
+        printf("Setting upload address registers to 0x00\r\n");
         com_rslt += bhy_write_reg(BHY_I2C_REG_UPLOAD_0_ADDR, &v_upload_addr, BHY_GEN_READ_WRITE_LENGTH);
         com_rslt += bhy_write_reg(BHY_I2C_REG_UPLOAD_1_ADDR, &v_upload_addr, BHY_GEN_READ_WRITE_LENGTH);
 
@@ -1513,7 +1513,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
                 }
 
 				if(packet_length != 0)
-                    printf("Writing data to upload data register");
+                    printf("Writing data to upload data register\r\n");
 
                     com_rslt += bhy_write_reg(BHY_I2C_REG_UPLOAD_DATA_ADDR,data_byte,packet_length * BHY_RAM_WRITE_LENGTH);
 
@@ -1523,7 +1523,7 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
 
 
         /* Check the CRC success*/
-        printf("Reading the CRC data of upload");
+        printf("Reading the CRC data of upload\r\n");
         com_rslt = bhy_get_crc_host(&v_crc_host_u32);
         if (v_crc_from_memory_u32 == v_crc_host_u32)
         {
@@ -1531,12 +1531,12 @@ BHY_RETURN_FUNCTION_TYPE bhy_initialize_from_rom( const u8 *memory, const u32 v_
         }
         else
         {
-            printf("BHY_CRC_ERROR");
+            printf("BHY_CRC_ERROR\r\n");
             com_rslt = BHY_CRC_ERROR;
             goto bhy_init_from_rom_return;
         }
         /* disable upload mode*/
-        printf("Disabling upload mode");
+        printf("Disabling upload mode\r\n");
 
         v_chip_control_u8 = BHY_CHIP_CTRL_ENABLE_2;
         /* write the chip control register as 0x02*/
