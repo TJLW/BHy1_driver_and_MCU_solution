@@ -130,6 +130,31 @@ int8_t ioport_get_pin_level(int gpio_pin)
 //     //return BHY_ERROR;
 // }
 
+int i2c_fd = 0;
+
+
+int open_i2c_device()
+{
+    char *filename = "/dev/i2c-2";
+    // int i2c_fd = -1;
+
+    if ((i2c_fd = open(filename, O_RDWR)) < 0) {
+        char err[200];
+        sprintf(err, "open('%s') in i2c_init", filename);
+        perror(err);
+        return -1;
+    }
+
+    return i2c_fd;
+}
+
+void close_i2c_device()
+{
+    close(i2c_fd);
+    return;
+}
+
+
 /*!
 * @brief        Linux write to i2c bus /dev entry
 *
@@ -169,15 +194,15 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
 
 
 
-    char *filename = "/dev/i2c-2";
-    int i2c_fd = -1;
+    // char *filename = "/dev/i2c-2";
+    int i2c_fd = open_i2c_device();
 
-    if ((i2c_fd = open(filename, O_RDWR)) < 0) {
-        char err[200];
-        sprintf(err, "open('%s') in i2c_init", filename);
-        perror(err);
-        return -1;
-    }
+    // if ((i2c_fd = open(filename, O_RDWR)) < 0) {
+    //     char err[200];
+    //     sprintf(err, "open('%s') in i2c_init", filename);
+    //     perror(err);
+    //     return -1;
+    // }
 
     // NOTE we do not call ioctl with I2C_SLAVE here because we always use the I2C_RDWR ioctl operation to do
     // writes, reads, and combined write-reads. I2C_SLAVE would be used to set the I2C slave address to communicate
@@ -209,7 +234,7 @@ int8_t linux_i2c_write(uint8_t addr, uint8_t reg, uint8_t *p_buf, uint16_t size)
         return -1;
     }
 
-    close(i2c_fd);
+    // close(i2c_fd);
     return 0;
 
 

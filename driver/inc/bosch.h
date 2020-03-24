@@ -8,6 +8,9 @@
 #define BHY_INT 36
 
 
+int open_i2c_device();
+void close_i2c_device();
+
 
 int8_t ioport_get_pin_level(int gpio_pin);
 

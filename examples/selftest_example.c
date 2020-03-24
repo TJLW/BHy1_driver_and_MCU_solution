@@ -208,6 +208,14 @@ void demo_sensor(void)
 
 void main()
 {
+
+
+    open_i2c_device();
+
     demo_sensor();
+
+    close_i2c_device();
+
+    
     return;
 }
