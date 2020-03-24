@@ -39,11 +39,10 @@ int8_t ioport_get_pin_level(int gpio_pin)
     //  available in /sys/class/gpio/gpio374
     //  DIRECTION SHOULD ALREADY BE SET TO INPUT
 
-    int gpio_base = 338;
+    int gpio = 338 + gpio_pin;
     char gpio_pin_c[3];
 
-    snprintf(gpio_pin_c, 3, "%d" , gpio_base + gpio_pin);
-    // itoa(gpio_base + gpio_pin, gpio_pin_c, 10);
+    snprintf(gpio_pin_c, 3, "%d" , gpio);
 
     printf("%d\r\n", gpio_pin_c);
 
@@ -53,8 +52,8 @@ int8_t ioport_get_pin_level(int gpio_pin)
     char* gpio_pin_sysfs_entry;
     gpio_pin_sysfs_entry = malloc(strlen("/sys/class/gpio/gpio") + 3 + strlen("/value"));
     strcpy(gpio_pin_sysfs_entry, "/sys/class/gpio/gpio");
-    strcpy(gpio_pin_sysfs_entry, gpio_pin_c);
-    strcpy(gpio_pin_sysfs_entry, "/value");
+    strcat(gpio_pin_sysfs_entry, gpio_pin_c);
+    strcat(gpio_pin_sysfs_entry, "/value");
 
     printf("%s\r\n", gpio_pin_sysfs_entry);
 
