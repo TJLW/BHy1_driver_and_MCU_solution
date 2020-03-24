@@ -205,3 +205,9 @@ void demo_sensor(void)
     }
 }
 /** @}*/
+
+void main()
+{
+    demo_sensor();
+    return;
+}
