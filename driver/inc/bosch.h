@@ -7,6 +7,8 @@
 
 #define BHY_INT 36
 
+int i2c_fd;
+
 
 int open_i2c_device();
 void close_i2c_device();
