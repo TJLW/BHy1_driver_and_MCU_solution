@@ -40,11 +40,11 @@ int8_t ioport_get_pin_level(int gpio_pin)
     //  DIRECTION SHOULD ALREADY BE SET TO INPUT
 
     int gpio = 338 + gpio_pin;
-    char gpio_pin_c[3];
+    char gpio_pin_c[4];
 
-    snprintf(gpio_pin_c, 3, "%d" , gpio);
+    snprintf(gpio_pin_c, 4, "%d" , gpio);
 
-    printf("%d\r\n", gpio_pin_c);
+    printf("%u\r\n", gpio_pin_c);
 
 
     // char * gpio_pin_sysfs = "/sys/class/gpio/gpio" + gpio_pin_c + "/value";
